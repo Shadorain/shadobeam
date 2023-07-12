@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
-    "shadobeam_client",
-    "shadobeam_server"
+    "implant",
+    "beacon",
+    "interface"
 ]
