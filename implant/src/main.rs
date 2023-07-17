@@ -1,18 +1,15 @@
-use tasks::greeter_client::GreeterClient;
-use tasks::HelloRequest;
-
+use tasks::{beacon_service_client::BeaconServiceClient, ConnectionRequest};
 pub mod tasks {
     tonic::include_proto!("tasks");
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = GreeterClient::connect("http://[::1]:50051").await?;
+    let mut client = BeaconServiceClient::connect("http://[::1]:50051").await?;
 
-    let request = tonic::Request::new(HelloRequest {
-        name: "Tonic".into(),
-    });
-    let response = client.say_hello(request).await?;
+    let response = client
+        .connection(tonic::Request::new(ConnectionRequest { id: 1 }))
+        .await?;
 
     println!("RESPONSE={:?}", response);
 

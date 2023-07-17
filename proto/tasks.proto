@@ -1,17 +1,33 @@
 syntax = "proto3";
 package tasks;
 
-service Greeter {
-  // Our SayHello rpc accepts HelloRequests and returns HelloReplies
-  rpc SayHello(HelloRequest) returns (HelloReply);
+service BeaconService {
+  // Client requests to connect and will get a ConnectionResponse if successful.
+  rpc Connection(ConnectionRequest) returns (ConnectionResponse);
+
+  // Poll establishes a stream of tasks and status.
+  rpc Poll(stream PollRequest) returns (stream PollResponse);
 }
 
-message HelloRequest {
-  // Request message contains the name to be greeted
-  string name = 1;
+message ConnectionRequest {
+  uint32 id = 1;
 }
 
-message HelloReply {
-  // Reply contains the greeting message
-  string message = 1;
+message ConnectionResponse {}
+
+message PollRequest {
+  Status status = 1;
+}
+
+message PollResponse {
+  ShellCode shellcode = 1;
+}
+
+message Status {
+  string info = 1;
+}
+
+message ShellCode {
+  string command = 1;
+  string arguments = 2;
 }
