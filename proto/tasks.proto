@@ -13,6 +13,7 @@ message ConnectionRequest {}
 
 message ConnectionResponse {
   string uuid = 1;
+  uint32 heartbeat = 2;
 }
 
 message PollRequest {
