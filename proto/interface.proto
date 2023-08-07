@@ -1,0 +1,23 @@
+syntax = "proto3";
+package interface;
+
+service InterfaceService {
+  // Interface requests to connect and will get a ConnectionResponse if successful.
+  rpc Connection(ConnectionRequest) returns (ConnectionResponse);
+
+  rpc GetList(ClientListRequest) returns (ClientListResponse);
+}
+
+message ConnectionRequest {}
+
+message ConnectionResponse {
+  string uuid = 1;
+}
+
+message ClientListRequest {
+  string uuid = 1;
+}
+
+message ClientListResponse {
+  repeated string list = 1;
+}

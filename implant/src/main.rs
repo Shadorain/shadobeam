@@ -1,9 +1,10 @@
 use rand::Rng;
 use std::time::Duration;
 
-use tasks::{beacon_service_client::BeaconServiceClient, ConnectionRequest, PollRequest};
 use tokio::{process::Command, time};
 use tonic::transport::Channel;
+
+use tasks::{beacon_service_client::BeaconServiceClient, ConnectionRequest, PollRequest};
 pub mod tasks {
     tonic::include_proto!("tasks");
 }

@@ -1,10 +1,13 @@
-use std::sync::Arc;
-
 use tonic::transport::Server;
 
 use tasks::beacon_service_server::BeaconServiceServer;
 pub mod tasks {
     tonic::include_proto!("tasks");
+}
+
+use interface::interface_service_server::InterfaceServiceServer;
+pub mod interface {
+    tonic::include_proto!("interface");
 }
 
 mod beacon;
@@ -27,7 +30,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     Server::builder()
-        .add_service(BeaconServiceServer::new(beacon))
+        .add_service(BeaconServiceServer::new(beacon.clone()))
+        .add_service(InterfaceServiceServer::new(beacon))
         .serve(addr)
         .await?;
 

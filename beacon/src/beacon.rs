@@ -4,9 +4,12 @@ use tokio::sync::RwLock;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
+use crate::implant::Implant;
 use crate::Task;
 
-use crate::implant::Implant;
+use crate::interface::{
+    self, interface_service_server::InterfaceService, ClientListRequest, ClientListResponse,
+};
 use crate::tasks::{
     beacon_service_server::BeaconService, ConnectionRequest, ConnectionResponse, PollRequest,
     PollResponse,
@@ -69,6 +72,40 @@ impl BeaconService for Arc<Beacon> {
                     ))
                 }
             },
+        }))
+    }
+}
+
+#[tonic::async_trait]
+impl InterfaceService for Arc<Beacon> {
+    async fn connection(
+        &self,
+        _request: Request<interface::ConnectionRequest>,
+    ) -> Result<Response<interface::ConnectionResponse>, Status> {
+        let id = Uuid::new_v4();
+
+        println!("Got an interface connection request: {id}");
+
+        // let mut map = self.implants.write().await;
+        // map.insert(id, Implant::default());
+
+        Ok(Response::new(interface::ConnectionResponse {
+            uuid: id.to_string(),
+        }))
+    }
+
+    async fn get_list(
+        &self,
+        request: Request<ClientListRequest>,
+    ) -> Result<Response<ClientListResponse>, Status> {
+        let id = Uuid::parse_str(&request.into_inner().uuid);
+        if id.is_err() {
+            return Err(Status::invalid_argument("Failed to parse uuid."));
+        }
+
+        let map = self.implants.read().await;
+        Ok(Response::new(ClientListResponse {
+            list: map.keys().map(|k| k.to_string()).collect(),
         }))
     }
 }

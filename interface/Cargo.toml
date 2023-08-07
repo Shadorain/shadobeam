@@ -3,6 +3,12 @@ name = "shadobeam_interface"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+tonic = "0.9"
+prost = "0.11"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+crossterm = "0.27.0"
+ratatui = { version = "0.22.0", features = ["all-widgets"]}
+
+[build-dependencies]
+tonic-build = "0.9"
