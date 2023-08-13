@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::implant::Implant;
 use crate::Task;
 
-use crate::interface::{
+use crate::iface::{
     self, interface_service_server::InterfaceService, ClientListRequest, ClientListResponse,
 };
 use crate::tasks::{
@@ -80,8 +80,8 @@ impl BeaconService for Arc<Beacon> {
 impl InterfaceService for Arc<Beacon> {
     async fn connection(
         &self,
-        _request: Request<interface::ConnectionRequest>,
-    ) -> Result<Response<interface::ConnectionResponse>, Status> {
+        _request: Request<iface::ConnectionRequest>,
+    ) -> Result<Response<iface::ConnectionResponse>, Status> {
         let id = Uuid::new_v4();
 
         println!("Got an interface connection request: {id}");
@@ -89,7 +89,7 @@ impl InterfaceService for Arc<Beacon> {
         // let mut map = self.implants.write().await;
         // map.insert(id, Implant::default());
 
-        Ok(Response::new(interface::ConnectionResponse {
+        Ok(Response::new(iface::ConnectionResponse {
             uuid: id.to_string(),
         }))
     }

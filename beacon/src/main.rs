@@ -5,8 +5,8 @@ pub mod tasks {
     tonic::include_proto!("tasks");
 }
 
-use interface::interface_service_server::InterfaceServiceServer;
-pub mod interface {
+use iface::interface_service_server::InterfaceServiceServer;
+pub mod iface {
     tonic::include_proto!("interface");
 }
 
