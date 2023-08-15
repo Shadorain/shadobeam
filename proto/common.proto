@@ -1,0 +1,7 @@
+syntax = "proto3";
+package common;
+
+message ShellCode {
+  string command = 1;
+  optional string arguments = 2;
+}

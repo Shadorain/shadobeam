@@ -1,13 +1,16 @@
 use std::error::Error;
 
-pub mod iface {
-    tonic::include_proto!("interface");
-}
-
 use interface::Interface;
 
 mod interface;
 mod ui;
+
+pub mod common {
+    tonic::include_proto!("common");
+}
+pub mod iface {
+    tonic::include_proto!("iface");
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
