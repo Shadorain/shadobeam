@@ -1,8 +1,8 @@
 use crate::{
     iface::{
-        interface_service_client::InterfaceServiceClient, ClientListRequest, ConnectionRequest,
+        interface_service_client::InterfaceServiceClient, ClientListRequest, ConnectionRequest, AddTaskRequest,
     },
-    ui::{App, Drawable, UI},
+    ui::{App, UI, Action},
 };
 
 use std::error::Error;
@@ -47,11 +47,29 @@ impl Interface {
         Ok(response.list)
     }
 
+    async fn add_task(&mut self) -> Result<(), Box<dyn Error>> {
+        // let response = self
+        //     .client
+        //     .add_task(tonic::Request::new(AddTaskRequest {
+        //         uuid: self.uuid.clone(),
+        //     }))
+        //     .await?
+        //     .into_inner();
+
+        Ok(())
+    }
+
     pub async fn run(mut self) -> Result<(), Box<dyn Error>> {
         let mut app = App::new();
+        app.update_clients(self.get_list().await?);
+
         loop {
             // let list = Drawable::ClientList(self.get_list().await?);
-            self.ui.events(&mut app, 250)?;
+            if let Some(action) = self.ui.events(&mut app, 250)? {
+                match action {
+                    Action::SendTask(_, _) => self.add_task().await?,
+                }
+            }
 
             if app.should_quit() {
                 break;

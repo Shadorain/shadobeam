@@ -14,13 +14,15 @@ pub use app::App;
 use panes::Panes;
 
 mod app;
+mod modal;
 mod panes;
 mod stateful_list;
 
 type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
+type Uuid = String;
 
-pub enum Drawable {
-    ClientList(Vec<String>),
+pub enum Action {
+    SendTask(Uuid, String),
 }
 
 pub struct UI {
@@ -53,7 +55,11 @@ impl UI {
             .expect("Failed to display cursor");
     }
 
-    pub fn events(&mut self, app: &mut App, poll_rate: u64) -> Result<(), Box<dyn Error>> {
+    pub fn events(
+        &mut self,
+        app: &mut App,
+        poll_rate: u64,
+    ) -> Result<Option<Action>, Box<dyn Error>> {
         // let widget = match item {
         //     Drawable::ClientList(list) => List::new(
         //         list.into_iter()
@@ -65,9 +71,9 @@ impl UI {
         self.terminal.draw(|f| app.ui(f))?;
 
         if event::poll(Duration::from_millis(poll_rate))? {
-            let _ = app.event(event::read()?);
+            return app.event(event::read()?);
         }
 
-        Ok(())
+        Ok(None)
     }
 }

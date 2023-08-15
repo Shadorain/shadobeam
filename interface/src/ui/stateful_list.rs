@@ -2,20 +2,26 @@
 
 use ratatui::widgets::ListState;
 
-struct StatefulList<T> {
-    state: ListState,
-    items: Vec<T>,
+pub struct StatefulList<T> {
+    pub state: ListState,
+    pub items: Vec<T>,
 }
 
 impl<T> StatefulList<T> {
-    fn with_items(items: Vec<T>) -> StatefulList<T> {
+    pub fn new() -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items: Vec::new(),
+        }
+    }
+    pub fn with_items(items: Vec<T>) -> StatefulList<T> {
         StatefulList {
             state: ListState::default(),
             items,
         }
     }
 
-    fn next(&mut self) {
+    pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
                 if i >= self.items.len() - 1 {
@@ -29,7 +35,7 @@ impl<T> StatefulList<T> {
         self.state.select(Some(i));
     }
 
-    fn previous(&mut self) {
+    pub fn previous(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
                 if i == 0 {
@@ -43,7 +49,11 @@ impl<T> StatefulList<T> {
         self.state.select(Some(i));
     }
 
-    fn unselect(&mut self) {
+    pub fn unselect(&mut self) {
         self.state.select(None);
+    }
+
+    pub fn get(&mut self) -> Option<&T> {
+        self.items.get(self.state.selected()?)
     }
 }

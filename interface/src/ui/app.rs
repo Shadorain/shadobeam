@@ -1,10 +1,9 @@
-use std::error::Error;
+use std::{collections::VecDeque, error::Error};
 
-use crossterm::event::{Event, KeyCode, KeyEvent};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{prelude::*, widgets::*};
-use strum_macros::AsRefStr;
 
-use super::{Frame, Panes};
+use super::{modal::Modal, stateful_list::StatefulList, Action, Frame, Panes};
 
 #[derive(Default)]
 pub enum State {
@@ -12,83 +11,45 @@ pub enum State {
     Main,
 }
 
-#[derive(AsRefStr)]
-pub enum Modal {
-    Command(String),
-}
-
-impl Modal {
-    pub fn key_event(key: KeyEvent, app: &mut App) {
-        if let Some(m) = &mut app.modal {
-            match m {
-                Modal::Command(buf) => match key.code {
-                    KeyCode::Char(k) => buf.push(k),
-                    KeyCode::Backspace => {
-                        buf.pop();
-                    }
-                    KeyCode::Enter => {
-                        app.console = buf.to_string();
-                        app.modal = None;
-                    }
-                    KeyCode::Esc => app.modal = None,
-                    _ => (),
-                },
-            }
-        }
-    }
-    pub fn block(&self) -> Block {
-        match self {
-            Modal::Command(_) => Block::new()
-                .title(ratatui::widgets::block::Title::from(self.as_ref()))
-                .title_alignment(Alignment::Center)
-                .borders(Borders::ALL),
-        }
-    }
-
-    pub fn popup_area(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-        let popup_layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(
-                [
-                    Constraint::Percentage((100 - percent_y) / 2),
-                    Constraint::Percentage(percent_y),
-                    Constraint::Percentage((100 - percent_y) / 2),
-                ]
-                .as_ref(),
-            )
-            .split(r);
-
-        Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(
-                [
-                    Constraint::Percentage((100 - percent_x) / 2),
-                    Constraint::Percentage(percent_x),
-                    Constraint::Percentage((100 - percent_x) / 2),
-                ]
-                .as_ref(),
-            )
-            .split(popup_layout[1])[1]
-    }
-}
-
-#[derive(Default)]
 pub struct App {
     state: State,
-    modal: Option<Modal>,
     quit: bool,
+    pub(super) modal: Option<Modal>,
 
-    clients: Vec<String>,
-    output: String,
-    console: String,
+    pub(super) clients: StatefulList<String>,
+    pub(super) output: String,
+    pub(super) console: Vec<String>,
+
+    actions: VecDeque<Action>,
 }
 
 impl App {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            state: State::Main,
+            quit: false,
+            modal: None,
+
+            clients: StatefulList::new(),
+            output: String::new(),
+            console: Vec::new(),
+
+            actions: VecDeque::new(),
+        }
     }
     pub fn should_quit(&self) -> bool {
         self.quit
+    }
+    pub fn update_clients(&mut self, clients: Vec<String>) {
+        self.clients = StatefulList::with_items(clients);
+        self.clients.next();
+    }
+    pub fn pop_action(&mut self) -> Option<Action> {
+        self.actions.pop_front()
+    }
+
+    fn push_action(&mut self, action: Action) {
+        self.actions.push_back(action)
     }
 
     pub(super) fn ui(&mut self, f: &mut Frame) {
@@ -111,19 +72,39 @@ impl App {
                     .split(chunks[1]);
 
                 f.render_widget(Panes::Shadobeam.block(), size);
-                f.render_widget(Panes::Clients.block(), sub_chunks_left[0]);
                 f.render_widget(Panes::Actions.block(), sub_chunks_left[1]);
                 f.render_widget(Panes::Output.block(), sub_chunks_right[0]);
 
+                let clients: Vec<ListItem> = self
+                    .clients
+                    .items
+                    .iter()
+                    .map(|c| ListItem::new(c.as_str()))
+                    .collect();
+                f.render_stateful_widget(
+                    List::new(clients)
+                        .block(Panes::Clients.block())
+                        .highlight_style(Style::new().bold().fg(Color::LightRed))
+                        .highlight_symbol("❱ "),
+                    sub_chunks_left[0],
+                    &mut self.clients.state,
+                );
+
+                let console_lines: Vec<ListItem> = self
+                    .console
+                    .iter()
+                    .rev()
+                    .map(|line| ListItem::new(line.as_str()))
+                    .collect();
                 f.render_widget(
-                    Paragraph::new(self.console.as_str()).block(Panes::Console.block()),
+                    List::new(console_lines).block(Panes::Console.block()),
                     sub_chunks_right[1],
                 );
 
                 if let Some(modal) = &self.modal {
                     match modal {
                         Modal::Command(buf) => {
-                            let area = Modal::popup_area(60, 20, size);
+                            let area = Modal::popup_area(50, 10, size);
                             f.render_widget(Clear, area); //this clears out the background
                             f.render_widget(
                                 Paragraph::new(buf.as_str()).block(modal.block()),
@@ -136,7 +117,7 @@ impl App {
         }
     }
 
-    pub(super) fn event(&mut self, event: Event) -> Result<(), Box<dyn Error>> {
+    pub(super) fn event(&mut self, event: Event) -> Result<Option<Action>, Box<dyn Error>> {
         #[allow(clippy::single_match)]
         match event {
             Event::Key(key) => {
@@ -144,14 +125,17 @@ impl App {
                     Modal::key_event(key, self);
                 } else {
                     match key.code {
-                        KeyCode::Char('q') => self.quit = true,
+                        KeyCode::Char('q') /* if key.modifiers == KeyModifiers::SHIFT */ => {
+                            self.quit = true
+                        }
                         KeyCode::Char('a') => self.modal = Some(Modal::Command(String::new())),
+                        KeyCode::Enter => self.clients.next(),
                         _ => (),
                     }
                 }
             }
             _ => (),
         }
-        Ok(())
+        Ok(self.pop_action())
     }
 }
