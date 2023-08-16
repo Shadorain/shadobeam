@@ -115,7 +115,7 @@ impl InterfaceService for Arc<Beacon> {
         request: Request<AddTaskRequest>,
     ) -> Result<Response<AddTaskResponse>, Status> {
         let request = request.into_inner();
-        let id = Uuid::parse_str(&request.uuid);
+        let id = Uuid::parse_str(&request.client_uuid);
         if id.is_err() {
             return Err(Status::invalid_argument("Failed to parse uuid."));
         }

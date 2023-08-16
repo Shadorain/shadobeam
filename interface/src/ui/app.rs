@@ -20,7 +20,7 @@ pub struct App {
     pub(super) output: String,
     pub(super) console: Vec<String>,
 
-    actions: VecDeque<Action>,
+    pub(super) actions: VecDeque<Action>,
 }
 
 impl App {
@@ -48,8 +48,23 @@ impl App {
         self.actions.pop_front()
     }
 
-    fn push_action(&mut self, action: Action) {
+    pub(super) fn push_action(&mut self, action: Action) {
         self.actions.push_back(action)
+    }
+
+    pub(super) fn uuid(&self) -> &String {
+        self.clients.get().expect("UUID should be focused.")
+    }
+
+    /// Generic Next Method
+    /// Based on current selected pane.
+    fn next(&mut self) {
+        self.clients.next();
+    }
+    /// Generic Previous Method
+    /// Based on current selected pane.
+    fn prev(&mut self) {
+        self.clients.previous();
     }
 
     pub(super) fn ui(&mut self, f: &mut Frame) {
@@ -71,47 +86,14 @@ impl App {
                     .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
                     .split(chunks[1]);
 
-                f.render_widget(Panes::Shadobeam.block(), size);
-                f.render_widget(Panes::Actions.block(), sub_chunks_left[1]);
-                f.render_widget(Panes::Output.block(), sub_chunks_right[0]);
-
-                let clients: Vec<ListItem> = self
-                    .clients
-                    .items
-                    .iter()
-                    .map(|c| ListItem::new(c.as_str()))
-                    .collect();
-                f.render_stateful_widget(
-                    List::new(clients)
-                        .block(Panes::Clients.block())
-                        .highlight_style(Style::new().bold().fg(Color::LightRed))
-                        .highlight_symbol("❱ "),
-                    sub_chunks_left[0],
-                    &mut self.clients.state,
-                );
-
-                let console_lines: Vec<ListItem> = self
-                    .console
-                    .iter()
-                    .rev()
-                    .map(|line| ListItem::new(line.as_str()))
-                    .collect();
-                f.render_widget(
-                    List::new(console_lines).block(Panes::Console.block()),
-                    sub_chunks_right[1],
-                );
+                Panes::Shadobeam.ui(self, f, size);
+                Panes::Actions.ui(self, f, sub_chunks_left[1]);
+                Panes::Output.ui(self, f, sub_chunks_right[0]);
+                Panes::Clients.ui(self, f, sub_chunks_left[0]);
+                Panes::Console.ui(self, f, sub_chunks_right[1]);
 
                 if let Some(modal) = &self.modal {
-                    match modal {
-                        Modal::Command(buf) => {
-                            let area = Modal::popup_area(50, 10, size);
-                            f.render_widget(Clear, area); //this clears out the background
-                            f.render_widget(
-                                Paragraph::new(buf.as_str()).block(modal.block()),
-                                area,
-                            );
-                        }
-                    }
+                    modal.ui(f);
                 }
             }
         }
@@ -129,7 +111,8 @@ impl App {
                             self.quit = true
                         }
                         KeyCode::Char('a') => self.modal = Some(Modal::Command(String::new())),
-                        KeyCode::Enter => self.clients.next(),
+                        KeyCode::Char('j') | KeyCode::Down => self.next(),
+                        KeyCode::Char('k') | KeyCode::Up => self.prev(),
                         _ => (),
                     }
                 }

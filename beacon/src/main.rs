@@ -23,14 +23,14 @@ type Task = common::ShellCode;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50055".parse()?;
     let beacon = Beacon::new();
-    let b2 = beacon.clone();
+    // let b2 = beacon.clone();
 
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(7500)).await;
-            b2.add_task(Task { command: "ls".to_string(), arguments: None }).await;
-        }
-    });
+    // tokio::spawn(async move {
+    //     loop {
+    //         tokio::time::sleep(std::time::Duration::from_millis(7500)).await;
+    //         b2.add_task(Task { command: "ls".to_string(), arguments: None }).await;
+    //     }
+    // });
 
     Server::builder()
         .add_service(BeaconServiceServer::new(beacon.clone()))

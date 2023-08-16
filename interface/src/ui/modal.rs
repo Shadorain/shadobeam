@@ -3,7 +3,7 @@ use ratatui::{prelude::*, widgets::*};
 
 use strum_macros::AsRefStr;
 
-use super::App;
+use super::{App, Frame};
 
 #[derive(AsRefStr)]
 pub enum Modal {
@@ -21,6 +21,13 @@ impl Modal {
                     }
                     KeyCode::Enter => {
                         app.console.push(buf.to_string());
+                        app.actions.push_back(super::Action::SendTask(
+                            app.clients
+                                .get()
+                                .expect("UUID should be focused.")
+                                .to_string(),
+                            buf.to_string(),
+                        ));
                         app.modal = None;
                     }
                     KeyCode::Esc => app.modal = None,
@@ -35,6 +42,16 @@ impl Modal {
                 .title(ratatui::widgets::block::Title::from(self.as_ref()))
                 .title_alignment(Alignment::Center)
                 .borders(Borders::ALL),
+        }
+    }
+
+    pub fn ui(&self, f: &mut Frame) {
+        match self {
+            Modal::Command(buf) => {
+                let area = Modal::popup_area(50, 10, f.size());
+                f.render_widget(Clear, area);
+                f.render_widget(Paragraph::new(buf.as_str()).block(self.block()), area);
+            }
         }
     }
 

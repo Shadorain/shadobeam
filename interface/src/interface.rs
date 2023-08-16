@@ -2,12 +2,14 @@ use crate::{
     iface::{
         interface_service_client::InterfaceServiceClient, ClientListRequest, ConnectionRequest, AddTaskRequest,
     },
-    ui::{App, UI, Action},
+    ui::{App, UI, Action}, common::ShellCode,
 };
 
 use std::error::Error;
 
 use tonic::transport::Channel;
+
+type Task = ShellCode;
 
 pub struct Interface {
     client: InterfaceServiceClient<Channel>,
@@ -47,14 +49,16 @@ impl Interface {
         Ok(response.list)
     }
 
-    async fn add_task(&mut self) -> Result<(), Box<dyn Error>> {
-        // let response = self
-        //     .client
-        //     .add_task(tonic::Request::new(AddTaskRequest {
-        //         uuid: self.uuid.clone(),
-        //     }))
-        //     .await?
-        //     .into_inner();
+    async fn add_task(&mut self, client_uuid: String, task: String) -> Result<(), Box<dyn Error>> {
+        let _ = self
+            .client
+            .add_task(tonic::Request::new(AddTaskRequest {
+                uuid: self.uuid.clone(),
+                client_uuid,
+                task: Some(Task { command: task, arguments: None })
+            }))
+            .await?
+            .into_inner();
 
         Ok(())
     }
@@ -67,7 +71,7 @@ impl Interface {
             // let list = Drawable::ClientList(self.get_list().await?);
             if let Some(action) = self.ui.events(&mut app, 250)? {
                 match action {
-                    Action::SendTask(_, _) => self.add_task().await?,
+                    Action::SendTask(u, t) => self.add_task(u, t).await?,
                 }
             }
 

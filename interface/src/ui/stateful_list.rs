@@ -53,7 +53,7 @@ impl<T> StatefulList<T> {
         self.state.select(None);
     }
 
-    pub fn get(&mut self) -> Option<&T> {
+    pub fn get(&self) -> Option<&T> {
         self.items.get(self.state.selected()?)
     }
 }
