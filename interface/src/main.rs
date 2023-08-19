@@ -3,7 +3,7 @@ use std::error::Error;
 use interface::Interface;
 
 mod interface;
-mod ui;
+mod tui;
 
 pub mod common {
     tonic::include_proto!("common");
