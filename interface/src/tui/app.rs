@@ -1,153 +1,86 @@
-use std::{collections::VecDeque, io::Stdout};
+use std::sync::Arc;
 
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use ratatui::{prelude::*, widgets::*};
+use anyhow::Result;
+use tokio::sync::{mpsc, Mutex};
 
-use modal::Modal;
-use panes::Panes;
-use stateful_list::StatefulList;
-
-use super::Result;
-
-pub use component::Component;
-
-mod component;
-mod modal;
-mod panes;
-mod stateful_list;
-
-type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
-type Uuid = String;
-
-pub enum Action {
-    SendTask(Uuid, String),
-}
-
-#[derive(Default)]
-pub enum State {
-    #[default]
-    Main,
-}
+use super::{
+    components::{Base, Component},
+    Action, EventHandler, Message, TerminalHandler,
+};
 
 pub struct App {
-    state: State,
-    quit: bool,
-    modal: Modal,
+    tick_rate: (u64, u64),
+    should_quit: bool,
+    should_suspend: bool,
 
-    clients: StatefulList<String>,
-    output: String,
-    console: Vec<String>,
-
-    actions: VecDeque<Action>,
+    base: Arc<Mutex<Base>>,
 }
 
 impl App {
-    pub fn new() -> Self {
-        Self {
-            state: State::Main,
-            quit: false,
-            modal: Modal::new(),
-
-            clients: StatefulList::new(),
-            output: String::new(),
-            console: Vec::new(),
-
-            actions: VecDeque::new(),
-        }
-    }
-    pub fn should_quit(&self) -> bool {
-        self.quit
-    }
-    pub fn update_clients(&mut self, clients: Vec<String>) {
-        self.clients = StatefulList::with_items(clients);
-        self.clients.next();
-    }
-    pub fn pop_action(&mut self) -> Option<Action> {
-        self.actions.pop_front()
+    pub fn new(tick_rate: (u64, u64)) -> Result<Self> {
+        let home = Arc::new(Mutex::new(Base::new()));
+        Ok(Self {
+            tick_rate,
+            base: home,
+            should_quit: false,
+            should_suspend: false,
+        })
     }
 
-    pub(super) fn push_action(&mut self, action: Action) {
-        self.actions.push_back(action);
-        // self.console.push(action);
-    }
+    pub async fn run(
+        &mut self,
+        message_tx: Option<mpsc::UnboundedSender<Message>>,
+        message_rx: Option<mpsc::UnboundedReceiver<Message>>,
+    ) -> Result<()> {
+        let (action_tx, mut action_rx) = mpsc::unbounded_channel();
 
-    pub(super) fn uuid(&self) -> &String {
-        self.clients.get().expect("UUID should be focused.")
-    }
+        let mut terminal = TerminalHandler::new(self.base.clone());
+        let mut event = EventHandler::new(self.tick_rate, self.base.clone(), action_tx.clone());
 
-    /// Generic Next Method
-    /// Based on current selected pane.
-    fn next(&mut self) {
-        self.clients.next();
-    }
-    /// Generic Previous Method
-    /// Based on current selected pane.
-    fn prev(&mut self) {
-        self.clients.previous();
-    }
+        self.base
+            .lock()
+            .await
+            .init(action_tx.clone(), message_tx.clone(), message_rx)?;
 
-    /// Generates the standard layout using passed in area.
-    ///
-    /// Return values:
-    /// - [0]: Clients
-    /// - [1]: Actions
-    /// - [2]: Output
-    /// - [3]: Console
-    ///
-    /// * `area`: Frame size to use.
-    fn layout(area: Rect) -> (Rect, Rect, Rect, Rect) {
-        let chunks = Layout::new()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-            .margin(1)
-            .split(area);
-
-        let left = Layout::new()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(chunks[0]);
-        let right = Layout::new()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
-            .split(chunks[1]);
-
-        (left[0], left[1], right[0], right[1])
-    }
-}
-
-impl Component for App {
-    fn draw(&mut self, f: &mut Frame, area: Rect) {
-        match self.state {
-            State::Main => {
-                let layout = App::layout(area);
-                Panes::Shadobeam.ui(self, f, area);
-                Panes::Clients.ui(self, f, layout.0);
-                Panes::Actions.ui(self, f, layout.1);
-                Panes::Output.ui(self, f, layout.2);
-                Panes::Console.ui(self, f, layout.3);
-
-                if self.modal.is_active() {
-                    self.modal.draw(f, area);
+        loop {
+            if let Some(action) = action_rx.recv().await {
+                match action {
+                    Action::RenderTick => terminal.render()?,
+                    Action::Quit => self.should_quit = true,
+                    Action::Suspend => self.should_suspend = true,
+                    Action::Resume => self.should_suspend = false,
+                    _ => {
+                        if action == Action::Tick {
+                            if let Some(tx) = &message_tx {
+                                tx.send(Message::Tick).unwrap();
+                            }
+                        }
+                        if let Some(_action) = self.base.lock().await.dispatch(action) {
+                            action_tx.send(_action)?
+                        };
+                    }
                 }
             }
-        }
-    }
-
-    fn event(&mut self, key: KeyEvent) -> Result<Option<Action>> {
-        if self.modal.is_active() {
-            self.modal.event(key)?;
-        } else {
-            match key.code {
-                KeyCode::Char('q') /* if key.modifiers == KeyModifiers::SHIFT */ => {
-                    self.quit = true
+            if self.should_suspend {
+                terminal.suspend()?;
+                event.stop();
+                terminal.task.await?;
+                event.task.await?;
+                terminal = TerminalHandler::new(self.base.clone());
+                event = EventHandler::new(self.tick_rate, self.base.clone(), action_tx.clone());
+                action_tx.send(Action::Resume)?;
+                action_tx.send(Action::RenderTick)?;
+            } else if self.should_quit {
+                if let Some(tx) = &message_tx {
+                    tx.send(Message::Quit).unwrap();
                 }
-                KeyCode::Char('j') | KeyCode::Down => self.next(),
-                KeyCode::Char('k') | KeyCode::Up => self.prev(),
-
-                KeyCode::Char('a') => self.modal.create('a'),
-                _ => (),
+                terminal.stop()?;
+                event.stop();
+                terminal.task.await?;
+                event.task.await?;
+                break;
             }
         }
-        Ok(self.pop_action())
+        Ok(())
     }
 }

@@ -4,13 +4,40 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tonic = "0.9"
-prost = "0.11"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
-crossterm = "0.27.0"
-ratatui = { version = "0.22.0", features = ["all-widgets"]}
+anyhow = "1.0.71"
+better-panic = "0.3.0"
+
+clap = { version = "4.3.4", default-features = false, features = [
+  "std",
+  "color",
+  "help",
+  "usage",
+  "error-context",
+  "suggestions",
+  "derive",
+  "cargo",
+  "wrap_help",
+  "unicode",
+  "string",
+  "unstable-styles",
+] }
+clap_complete = "4.3.1"
 strum = "0.25.0"
 strum_macros = "0.25.0"
+
+crossterm = { version = "0.27.0", default-features = false, features = [
+  "event-stream",
+] }
+ratatui = { version = "0.22.0", features = ["all-widgets"]}
+tui-input = "0.8.0"
+
+prost = "0.11"
+tonic = "0.9"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio-stream = "0.1.14"
+tokio-util = "0.7.8"
+futures = "0.3.28"
+signal-hook = "0.3.15"
 
 [build-dependencies]
 tonic-build = "0.9"
