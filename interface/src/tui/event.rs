@@ -89,8 +89,9 @@ impl EventHandler {
                         event_tx.send(Event::RenderTick).unwrap();
                     },
                     event = event_rx.recv() => {
-                        let action = home.lock().await.handle_events(event);
-                        action_tx.send(action).unwrap();
+                        if let Some(action) = home.lock().await.handle_events(event) {
+                            action_tx.send(action).unwrap();
+                        }
                     }
                 }
             }

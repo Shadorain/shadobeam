@@ -21,6 +21,9 @@ impl<T> StatefulList<T> {
             items,
         }
     }
+    pub fn replace(&mut self, items: Vec<T>) {
+        self.items = items;
+    }
 
     pub fn next(&mut self) {
         let i = match self.state.selected() {

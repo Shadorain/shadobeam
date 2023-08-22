@@ -8,13 +8,24 @@ pub enum Action {
     Resize(u16, u16),
     ToggleShowLogger,
     CompleteInput(String),
-    Clients(Vec<String>),
-    NextItem,
-    PrevItem,
     EnterNormal,
     EnterInsert,
     EnterProcessing,
     ExitProcessing,
     Update,
-    Noop,
+    None,
+    Clients(ClientsAction),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClientsAction {
+    List(Vec<String>),
+    NextItem,
+    PrevItem,
+}
+
+impl From<ClientsAction> for Action {
+    fn from(value: ClientsAction) -> Self {
+        Self::Clients(value)
+    }
 }

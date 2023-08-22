@@ -1,11 +1,9 @@
-use std::time::Duration;
-
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{prelude::*, widgets::*};
 use tokio::{sync::mpsc::{self, UnboundedReceiver, UnboundedSender}, task::JoinHandle};
 use tui_input::{backend::crossterm::EventHandler, Input};
 
-use super::{Action, Component, Frame, Message, Other, StatefulList};
+use super::{Action, Clients, Component, Frame, Message, Other};
 
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
 enum Mode {
@@ -17,10 +15,9 @@ enum Mode {
 
 #[derive(Default)]
 pub struct Base {
-    clients: StatefulList<String>,
+    clients: Clients,
     input: Input,
     mode: Mode,
-    ticker: usize,
 
     other: Other,
     show_other: bool,
@@ -37,10 +34,6 @@ impl Base {
         Self::default()
     }
 
-    fn tick(&mut self) {
-        self.ticker = self.ticker.saturating_add(1);
-    }
-
     fn uuid(&self) -> String {
         String::from("some-uuid")
     }
@@ -52,9 +45,10 @@ impl Base {
     /// - [1]: Actions
     /// - [2]: Output
     /// - [3]: Console
+    /// - [4]: Input
     ///
     /// * `area`: Frame size to use.
-    fn layout(area: Rect) -> (Rect, Rect, Rect, Rect) {
+    fn layout(area: Rect) -> (Rect, Rect, Rect, Rect, Rect) {
         let chunks = Layout::new()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
@@ -63,18 +57,20 @@ impl Base {
 
         let left = Layout::new()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(30)])
             .split(chunks[0]);
         let right = Layout::new()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+            .constraints([Constraint::Percentage(75), Constraint::Percentage(20), Constraint::Percentage(5)])
             .split(chunks[1]);
 
-        (left[0], left[1], right[0], right[1])
+        (left[0], left[1], right[0], right[1], right[2])
     }
 }
 
 impl Component for Base {
+    type Action = Action;
+
     fn init(
         &mut self,
         tx: UnboundedSender<Action>,
@@ -91,9 +87,9 @@ impl Component for Base {
                 loop {
                     if let Some(message) = &rx.recv().await {
                         match message {
-                            Message::Clients(list) => tx.send(Action::Clients(list.to_vec())).unwrap(),
+                            Message::Clients(list) => tx.send(super::ClientsAction::List(list.to_vec()).into()).unwrap(),
                             Message::None => (),
-                            | _ => (),
+                            _ => (),
                         }
                     }
                 }
@@ -105,8 +101,8 @@ impl Component for Base {
         Ok(())
     }
 
-    fn handle_key_events(&mut self, key: KeyEvent) -> Action {
-        match self.mode {
+    fn handle_key_events(&mut self, key: KeyEvent) -> Option<Self::Action> {
+        Some(match self.mode {
             Mode::Normal | Mode::Processing => match key.code {
                 KeyCode::Char('q') => Action::Quit,
                 KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
@@ -114,8 +110,6 @@ impl Component for Base {
                 KeyCode::Char('z') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Action::Suspend
                 }
-                KeyCode::Char('j') | KeyCode::Up => Action::NextItem,
-                KeyCode::Char('k') | KeyCode::Down => Action::PrevItem,
                 KeyCode::Char('l') => Action::ToggleShowLogger,
                 KeyCode::Char('/') => Action::EnterInsert,
                 _ => Action::Tick,
@@ -128,12 +122,11 @@ impl Component for Base {
                     Action::Update
                 }
             },
-        }
+        })
     }
 
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         match action {
-            Action::Tick => self.tick(),
             Action::ToggleShowLogger => self.show_other = !self.show_other,
             Action::EnterNormal => {
                 self.mode = Mode::Normal;
@@ -144,9 +137,6 @@ impl Component for Base {
                 }
                 return Some(Action::EnterNormal);
             }
-            Action::Clients(list) => self.clients = StatefulList::with_items(list.to_vec()),
-            Action::NextItem => self.clients.next(),
-            Action::PrevItem => self.clients.previous(),
             Action::EnterInsert => {
                 self.mode = Mode::Insert;
             }
@@ -171,20 +161,8 @@ impl Component for Base {
                 .title_alignment(Alignment::Center),
             area,
         );
-        let clients: Vec<ListItem> = self
-            .clients
-            .items
-            .iter()
-            .map(|c| ListItem::new(c.as_str()))
-            .collect();
-        f.render_stateful_widget(
-            List::new(clients)
-                .block(Block::new().title("Clients").borders(Borders::ALL))
-                .highlight_style(Style::new().bold().fg(Color::LightRed))
-                .highlight_symbol("❱ "),
-            layout.0,
-            &mut self.clients.state,
-        );
+
+        self.clients.render(f, layout.0);
 
         let width = layout.1.width.max(3) - 3; // keep 2 for borders and 1 for cursor
         let scroll = self.input.visual_scroll(width as usize);
@@ -216,7 +194,7 @@ impl Component for Base {
                         Span::styled(" to finish)", Style::default().fg(Color::DarkGray)),
                     ])),
             );
-        f.render_widget(input, layout.1);
+        f.render_widget(input, layout.4);
 
         if self.mode == Mode::Insert {
             f.set_cursor(

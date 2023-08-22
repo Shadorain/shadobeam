@@ -1,21 +1,12 @@
-use anyhow::Result;
 use ratatui::{prelude::*, widgets::*};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use super::{Action, Component, Frame, Message};
+use super::{Action, Component, Frame};
 
 #[derive(Default)]
 pub struct Other {}
 
 impl Component for Other {
-    fn init(
-        &mut self,
-        _: UnboundedSender<Action>,
-        _message_tx: Option<UnboundedSender<Message>>,
-        _message_rx: Option<UnboundedReceiver<Message>>,
-    ) -> Result<()> {
-        Ok(())
-    }
+    type Action = Action;
 
     fn render(&mut self, f: &mut Frame<'_>, area: Rect) {
         let w = Paragraph::new("HI!").block(

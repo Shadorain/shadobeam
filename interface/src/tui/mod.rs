@@ -7,7 +7,7 @@ mod stateful_list;
 mod terminal;
 mod utils;
 
-use action::Action;
+use action::*;
 use event::{Event, EventHandler};
 use stateful_list::StatefulList;
 use terminal::{Frame, TerminalHandler, Tui};
