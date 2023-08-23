@@ -19,7 +19,6 @@ pub enum Action {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ClientsAction {
-    List(Vec<String>),
     NextItem,
     PrevItem,
 }

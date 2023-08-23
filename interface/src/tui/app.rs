@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use tokio::sync::{mpsc, Mutex};
+use tokio::{
+    sync::{mpsc, Mutex},
+    task::JoinHandle,
+};
 
 use super::{
     components::{Base, Component},
@@ -14,16 +17,18 @@ pub struct App {
     should_suspend: bool,
 
     base: Arc<Mutex<Base>>,
+
+    task: Option<JoinHandle<()>>,
 }
 
 impl App {
     pub fn new(tick_rate: (u64, u64)) -> Result<Self> {
-        let home = Arc::new(Mutex::new(Base::new()));
         Ok(Self {
             tick_rate,
-            base: home,
+            base: Arc::new(Mutex::new(Base::new())),
             should_quit: false,
             should_suspend: false,
+            task: None,
         })
     }
 
@@ -36,11 +41,12 @@ impl App {
 
         let mut terminal = TerminalHandler::new(self.base.clone());
         let mut event = EventHandler::new(self.tick_rate, self.base.clone(), action_tx.clone());
+        self.message_task(action_tx.clone(), message_rx);
 
         self.base
             .lock()
             .await
-            .init(action_tx.clone(), message_tx.clone(), message_rx)?;
+            .init(action_tx.clone(), message_tx.clone())?;
 
         loop {
             if let Some(action) = action_rx.recv().await {
@@ -76,11 +82,36 @@ impl App {
                 }
                 terminal.stop()?;
                 event.stop();
+                if let Some(task) = self.task.take() {
+                    task.await?;
+                }
                 terminal.task.await?;
                 event.task.await?;
                 break;
             }
         }
         Ok(())
+    }
+
+    fn message_task(
+        &mut self,
+        action_tx: mpsc::UnboundedSender<Action>,
+        message_rx: Option<mpsc::UnboundedReceiver<Message>>,
+    ) {
+        let base = self.base.clone();
+        if message_rx.is_some() {
+            let task = tokio::spawn(async move {
+                #[allow(clippy::unnecessary_unwrap)]
+                let mut rx = message_rx.unwrap();
+                loop {
+                    if let Some(message) = rx.recv().await {
+                        if let Some(action) = base.lock().await.message(message) {
+                            action_tx.send(action).unwrap();
+                        }
+                    }
+                }
+            });
+            self.task = Some(task);
+        }
     }
 }

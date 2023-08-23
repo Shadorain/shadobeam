@@ -1,7 +1,7 @@
 use anyhow::Result;
 use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::layout::Rect;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::UnboundedSender;
 
 use super::{action::*, Event, Frame, Message, StatefulList};
 
@@ -21,7 +21,6 @@ pub trait Component {
         &mut self,
         tx: UnboundedSender<Action>,
         message_tx: Option<UnboundedSender<Message>>,
-        message_rx: Option<UnboundedReceiver<Message>>,
     ) -> Result<()> {
         Ok(())
     }
@@ -51,6 +50,10 @@ pub trait Component {
     }
     #[allow(unused_variables)]
     fn dispatch(&mut self, action: Self::Action) -> Option<Self::Action> {
+        None
+    }
+    #[allow(unused_variables)]
+    fn message(&mut self, message: Message) -> Option<Self::Action> {
         None
     }
     fn render(&mut self, f: &mut Frame, area: Rect);

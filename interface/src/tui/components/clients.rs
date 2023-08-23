@@ -1,11 +1,17 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{prelude::*, widgets::*};
 
-use super::{ClientsAction, Component, Frame, StatefulList};
+use super::{ClientsAction, Component, Frame, Message, StatefulList};
 
 #[derive(Default)]
 pub struct Clients {
     list: StatefulList<String>,
+}
+
+impl Clients {
+    pub fn uuid(&self) -> &str {
+        self.list.get().expect("Client should be selected.")
+    }
 }
 
 impl Component for Clients {
@@ -21,9 +27,15 @@ impl Component for Clients {
 
     fn dispatch(&mut self, action: Self::Action) -> Option<Self::Action> {
         match action {
-            ClientsAction::List(list) => self.list.replace(list.to_vec()),
             ClientsAction::NextItem => self.list.next(),
             ClientsAction::PrevItem => self.list.previous(),
+        }
+        None
+    }
+
+    fn message(&mut self, message: Message) -> Option<Self::Action> {
+        if let Message::Clients(list) = message {
+            self.list.replace(list.to_vec())
         }
         None
     }
