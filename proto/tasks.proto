@@ -1,0 +1,30 @@
+syntax = "proto3";
+package tasks;
+
+import "common.proto";
+
+service BeaconService {
+  // Client requests to connect and will get a ConnectionResponse if successful.
+  rpc Connection(ConnectionRequest) returns (ConnectionResponse);
+
+  // Poll establishes a stream of tasks and status.
+  rpc Poll(PollRequest) returns (PollResponse);
+}
+
+message ConnectionRequest {}
+
+message ConnectionResponse {
+  string uuid = 1;
+  uint32 heartbeat = 2;
+}
+
+message PollRequest {
+  string uuid = 1;
+  // Status status = 2;
+}
+
+message PollResponse {
+  optional common.ShellCode shellcode = 1;
+}
+
+message Status { string info = 1; }

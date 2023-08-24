@@ -1,0 +1,119 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'shadobeam_implant'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=shadobeam_implant",
+                    "--package=shadobeam_implant"
+                ],
+                "filter": {
+                    "name": "shadobeam_implant",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'shadobeam_implant'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=shadobeam_implant",
+                    "--package=shadobeam_implant"
+                ],
+                "filter": {
+                    "name": "shadobeam_implant",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'shadobeam_beacon'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=shadobeam_beacon",
+                    "--package=shadobeam_beacon"
+                ],
+                "filter": {
+                    "name": "shadobeam_beacon",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'shadobeam_beacon'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=shadobeam_beacon",
+                    "--package=shadobeam_beacon"
+                ],
+                "filter": {
+                    "name": "shadobeam_beacon",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'shadobeam_interface'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=shadobeam_interface",
+                    "--package=shadobeam_interface"
+                ],
+                "filter": {
+                    "name": "shadobeam_interface",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'shadobeam_interface'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=shadobeam_interface",
+                    "--package=shadobeam_interface"
+                ],
+                "filter": {
+                    "name": "shadobeam_interface",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
