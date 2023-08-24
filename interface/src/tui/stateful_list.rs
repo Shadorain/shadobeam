@@ -1,11 +1,26 @@
 #![allow(dead_code)]
 
+use std::ops::{Deref, DerefMut};
+
 use ratatui::widgets::ListState;
 
 #[derive(Default)]
 pub struct StatefulList<T> {
     pub state: ListState,
     pub items: Vec<T>,
+}
+
+impl<T> Deref for StatefulList<T> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.items
+    }
+}
+impl<T> DerefMut for StatefulList<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.items
+    }
 }
 
 impl<T> StatefulList<T> {

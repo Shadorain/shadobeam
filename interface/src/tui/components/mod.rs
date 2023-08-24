@@ -6,16 +6,24 @@ use tokio::sync::mpsc::UnboundedSender;
 use super::{action::*, Event, Frame, Message, StatefulList};
 
 pub use base::Base;
-use clients::Clients;
-use other::Other;
 
+use actions::Actions;
+use console::Console;
+use implants::Implants;
+use input::Input;
+use output::Output;
+
+use pane::Pane;
+mod pane;
+
+mod actions;
 mod base;
-mod clients;
-mod other;
+mod console;
+mod implants;
+mod input;
+mod output;
 
 pub trait Component {
-    type Action: Into<Action>;
-
     #[allow(unused_variables)]
     fn init(
         &mut self,
@@ -41,19 +49,19 @@ pub trait Component {
         })
     }
     #[allow(unused_variables)]
-    fn handle_key_events(&mut self, key: KeyEvent) -> Option<Self::Action> {
+    fn handle_key_events(&mut self, key: KeyEvent) -> Option<Action> {
         None
     }
     #[allow(unused_variables)]
-    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Option<Self::Action> {
+    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Option<Action> {
         None
     }
     #[allow(unused_variables)]
-    fn dispatch(&mut self, action: Self::Action) -> Option<Self::Action> {
+    fn dispatch(&mut self, action: Action) -> Option<Action> {
         None
     }
     #[allow(unused_variables)]
-    fn message(&mut self, message: Message) -> Option<Self::Action> {
+    fn message(&mut self, message: Message) -> Option<Action> {
         None
     }
     fn render(&mut self, f: &mut Frame, area: Rect);

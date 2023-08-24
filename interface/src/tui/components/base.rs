@@ -1,10 +1,8 @@
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use ratatui::{prelude::*, widgets::*};
-use strum_macros::AsRefStr;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::prelude::*;
 use tokio::sync::mpsc::{self, UnboundedSender};
-use tui_input::{backend::crossterm::EventHandler, Input};
 
-use super::{Action, Clients, Component, Frame, Message, Other};
+use super::{Action, Actions, Component, Console, Frame, Implants, Input, Message, Output, Pane};
 
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
 enum Mode {
@@ -14,42 +12,33 @@ enum Mode {
     Processing,
 }
 
-#[derive(Default, AsRefStr)]
-pub enum Pane {
-    Shadobeam,
-    #[default]
-    Clients,
-    Actions,
-    Output,
-    Console,
-}
-
-impl Pane {
-    pub fn block(&self) -> Block {
-        match self {
-            Pane::Shadobeam => Block::new()
-                .title(ratatui::widgets::block::Title::from(self.as_ref()))
-                .title_alignment(Alignment::Center),
-            _ => Block::new()
-                .title(ratatui::widgets::block::Title::from(self.as_ref()))
-                .borders(Borders::ALL),
-        }
-    }
-}
-
 #[derive(Default)]
 pub struct Base {
-    clients: Clients,
-    input: Input,
     mode: Mode,
 
-    selected_pane: Pane,
+    // Panes
+    // selected_pane: Pane,
 
-    other: Other,
-    show_other: bool,
+    // Components
+    implants: Implants,
+    actions: Actions,
+    output: Output,
+    console: Console,
+    input: Input,
 
+    // Channels
     action_tx: Option<mpsc::UnboundedSender<Action>>,
     message_tx: Option<mpsc::UnboundedSender<Message>>,
+}
+
+type ComponentList<'a> = [&'a mut dyn Component; 5];
+
+impl<'a> std::ops::Index<Pane> for ComponentList<'a> {
+    type Output = &'a mut dyn Component;
+
+    fn index(&self, idx: Pane) -> &Self::Output {
+        &self[idx as usize]
+    }
 }
 
 impl Base {
@@ -57,51 +46,20 @@ impl Base {
         Self::default()
     }
 
+    fn components(&mut self) -> ComponentList {
+        [
+            &mut self.implants,
+            &mut self.actions,
+            &mut self.output,
+            &mut self.console,
+            &mut self.input,
+        ]
+    }
+
     fn send(&self, message: Message) {
         if let Some(tx) = &self.message_tx {
             tx.send(message)
                 .expect("Base: Send message failure: {message}")
-        }
-    }
-
-    fn render_input(&mut self, f: &mut Frame, area: Rect) {
-        let width = area.width.max(3) - 3; // keep 2 for borders and 1 for cursor
-        let scroll = self.input.visual_scroll(width as usize);
-        let input = Paragraph::new(self.input.value())
-            .style(match self.mode {
-                Mode::Insert => Style::default().fg(Color::Yellow),
-                _ => Style::default(),
-            })
-            .scroll((0, scroll as u16))
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(Line::from(vec![
-                        Span::raw("Enter Input Mode "),
-                        Span::styled("(Press ", Style::default().fg(Color::DarkGray)),
-                        Span::styled(
-                            "/",
-                            Style::default()
-                                .add_modifier(Modifier::BOLD)
-                                .fg(Color::Gray),
-                        ),
-                        Span::styled(" to start, ", Style::default().fg(Color::DarkGray)),
-                        Span::styled(
-                            "ESC",
-                            Style::default()
-                                .add_modifier(Modifier::BOLD)
-                                .fg(Color::Gray),
-                        ),
-                        Span::styled(" to finish)", Style::default().fg(Color::DarkGray)),
-                    ])),
-            );
-        f.render_widget(input, area);
-
-        if self.mode == Mode::Insert {
-            f.set_cursor(
-                (area.x + 1 + self.input.cursor() as u16).min(area.x + area.width - 2),
-                area.y + 1,
-            )
         }
     }
 
@@ -115,7 +73,7 @@ impl Base {
     /// - [4]: Input
     ///
     /// * `area`: Frame size to use.
-    fn layout(area: Rect) -> (Rect, Rect, Rect, Rect, Rect) {
+    fn layout(area: Rect) -> [Rect; 5] {
         let chunks = Layout::new()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
@@ -130,18 +88,16 @@ impl Base {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Percentage(75),
-                Constraint::Percentage(25),
+                Constraint::Min(10),
                 Constraint::Min(3),
             ])
             .split(chunks[1]);
 
-        (left[0], left[1], right[0], right[1], right[2])
+        [left[0], left[1], right[0], right[1], right[2]]
     }
 }
 
 impl Component for Base {
-    type Action = Action;
-
     fn init(
         &mut self,
         tx: UnboundedSender<Action>,
@@ -150,55 +106,50 @@ impl Component for Base {
         self.action_tx = Some(tx.clone());
         self.message_tx = message_tx;
 
-        self.other.init(tx.clone(), None)?;
-        self.clients.init(tx, None)?;
+        self.implants.init(tx.clone(), None)?;
+        self.actions.init(tx, None)?;
+        // self.input.init(tx, None)?;
 
         Ok(())
     }
 
-    fn handle_key_events(&mut self, key: KeyEvent) -> Option<Self::Action> {
+    fn handle_key_events(&mut self, key: KeyEvent) -> Option<Action> {
         Some(match self.mode {
             Mode::Normal | Mode::Processing => match key.code {
                 KeyCode::Char('q') => Action::Quit,
-                KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
-                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
+                KeyCode::Char('d') | KeyCode::Char('c')
+                    if key.modifiers.contains(KeyModifiers::CONTROL) =>
+                {
+                    Action::Quit
+                }
                 KeyCode::Char('z') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Action::Suspend
                 }
-                KeyCode::Char('l') => Action::ToggleShowLogger,
                 KeyCode::Char('/') => Action::EnterInsert,
 
-                _ => {
-                    if let Some(a) = self.clients.handle_key_events(key) {
-                        a.into()
-                    } else {
-                        Action::Tick
-                    }
-                }
+                _ => self.implants.handle_key_events(key).unwrap_or(Action::Tick),
             },
-            Mode::Insert => match key.code {
-                KeyCode::Esc => Action::EnterNormal,
-                KeyCode::Enter => Action::CompleteInput(self.input.to_string()),
-                _ => {
-                    self.input.handle_event(&Event::Key(key));
-                    Action::Update
-                }
-            },
+            Mode::Insert => return self.input.handle_key_events(key),
         })
     }
 
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         match action {
-            Action::ToggleShowLogger => self.show_other = !self.show_other,
+            Action::CompleteInput => {
+                self.send(Message::SendTask(
+                    self.implants.uuid().to_string(),
+                    self.input.to_string(),
+                ));
+                self.console.push(self.input.to_string());
+                return Some(Action::EnterNormal);
+            }
             Action::EnterNormal => {
                 self.mode = Mode::Normal;
-            }
-            Action::CompleteInput(t) => {
-                self.send(Message::SendTask(self.clients.uuid().to_string(), t));
-                return Some(Action::EnterNormal);
+                self.input.set_insert(false);
             }
             Action::EnterInsert => {
                 self.mode = Mode::Insert;
+                self.input.set_insert(true);
             }
             Action::EnterProcessing => {
                 self.mode = Mode::Processing;
@@ -208,28 +159,28 @@ impl Component for Base {
                 self.mode = Mode::Normal;
             }
 
-            Action::Clients(c) => return self.clients.dispatch(c).map(|i| i.into()),
+            Action::Implants(_) => return self.implants.dispatch(action),
 
             _ => (),
         }
         None
     }
 
-    fn message(&mut self, message: Message) -> Option<Self::Action> {
-        if let Message::Clients(_) = message {
-            return self.clients.message(message).map(|i| i.into());
+    fn message(&mut self, message: Message) -> Option<Action> {
+        if let Message::Implants(_) = message {
+            self.implants.message(message)
+        } else {
+            None
         }
-        None
     }
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let layout = Base::layout(area);
 
         f.render_widget(Pane::Shadobeam.block(), area);
-        self.clients.render(f, layout.0);
-        f.render_widget(Pane::Actions.block(), layout.1);
-        f.render_widget(Pane::Output.block(), layout.2);
-        f.render_widget(Pane::Console.block(), layout.3);
-        self.render_input(f, layout.4);
+        self.components()
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, c)| c.render(f, layout[i]));
     }
 }

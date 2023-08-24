@@ -5,5 +5,5 @@ pub enum Message {
     Quit,
     Tick,
     SendTask(String, String),
-    Clients(Vec<String>),
+    Implants(Vec<String>),
 }

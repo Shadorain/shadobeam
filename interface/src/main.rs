@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
         if let Some(message) = message_rx.recv().await {
             match message {
                 Message::SendTask(u, t) => interface.add_task(u, t).await?,
-                Message::Tick => lmessage_tx.send(Message::Clients(interface.get_list().await?))?,
+                Message::Tick => lmessage_tx.send(Message::Implants(interface.get_list().await?))?,
                 Message::Quit => break,
                 _ => (),
             }

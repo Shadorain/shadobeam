@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     Quit,
@@ -6,25 +7,23 @@ pub enum Action {
     Tick,
     RenderTick,
     Resize(u16, u16),
-    ToggleShowLogger,
-    CompleteInput(String),
+    CompleteInput,
     EnterNormal,
     EnterInsert,
     EnterProcessing,
     ExitProcessing,
     Update,
-    None,
-    Clients(ClientsAction),
+    Implants(ImplantsAction),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ClientsAction {
+pub enum ImplantsAction {
     NextItem,
     PrevItem,
 }
 
-impl From<ClientsAction> for Action {
-    fn from(value: ClientsAction) -> Self {
-        Self::Clients(value)
+impl From<ImplantsAction> for Action {
+    fn from(value: ImplantsAction) -> Self {
+        Self::Implants(value)
     }
 }
