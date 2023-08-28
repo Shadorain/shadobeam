@@ -3,7 +3,7 @@ use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::layout::Rect;
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::{action::*, Event, Frame, Message, StatefulList};
+use super::{action::*, message::*, Event, Frame, StatefulList};
 
 pub use base::Base;
 
@@ -39,12 +39,8 @@ pub trait Component {
             Some(Event::AppTick) => Action::Tick,
             Some(Event::RenderTick) => Action::RenderTick,
             Some(Event::Resize(x, y)) => Action::Resize(x, y),
-            Some(Event::Key(key_event)) => {
-                return self.handle_key_events(key_event).map(|e| e.into())
-            }
-            Some(Event::Mouse(mouse_event)) => {
-                return self.handle_mouse_events(mouse_event).map(|e| e.into())
-            }
+            Some(Event::Key(key_event)) => return self.handle_key_events(key_event),
+            Some(Event::Mouse(mouse_event)) => return self.handle_mouse_events(mouse_event),
             Some(_) | None => return None,
         })
     }

@@ -1,7 +1,10 @@
 use anyhow::Result;
+use tokio::sync::mpsc::UnboundedSender;
 
 use super::{
-    common::ShellCode,
+    Task,
+    Message,
+    common,
     iface::{
         interface_service_client::InterfaceServiceClient, AddTaskRequest, ClientListRequest,
         ConnectionRequest,
@@ -10,7 +13,17 @@ use super::{
 
 use tonic::transport::Channel;
 
-type Task = ShellCode;
+impl From<Task> for common::Task {
+    fn from(value: Task) -> Self {
+        Self {
+            uuid: value.uuid.to_string(),
+            shellcode: Some(common::ShellCode {
+                command: value.code.0,
+                arguments: value.code.1.unwrap_or_default(),
+            })
+        }
+    }
+}
 
 pub struct Interface {
     client: InterfaceServiceClient<Channel>,
@@ -43,17 +56,20 @@ impl Interface {
         Ok(response.list)
     }
 
-    pub async fn add_task(&mut self, client_uuid: String, task: String) -> Result<()> {
-        self.client
+    pub async fn add_task(&mut self, client_uuid: String, task: Task, tx: &UnboundedSender<Message>) -> Result<()> {
+        let mut response = self.client
             .add_task(tonic::Request::new(AddTaskRequest {
                 uuid: self.uuid.clone(),
                 client_uuid,
-                task: Some(Task {
-                    command: task,
-                    arguments: None,
-                }),
+                task: Some(task.into()),
             }))
-            .await?;
+            .await?.into_inner();
+
+        while let Some(r) = response.message().await? {
+            if let Some(line) = r.line {
+                tx.send(Message::Output(line))?;
+            }
+        }
 
         Ok(())
     }

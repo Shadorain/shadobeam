@@ -1,8 +1,11 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::prelude::*;
 use tokio::sync::mpsc::{self, UnboundedSender};
+use uuid::Uuid;
 
-use super::{Action, Actions, Component, Console, Frame, Implants, Input, Message, Output, Pane};
+use super::{
+    Action, Actions, Component, Console, Frame, Implants, Input, Message, Output, Pane, Task,
+};
 
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
 enum Mode {
@@ -138,7 +141,10 @@ impl Component for Base {
             Action::CompleteInput => {
                 self.send(Message::SendTask(
                     self.implants.uuid().to_string(),
-                    self.input.to_string(),
+                    Task {
+                        uuid: Uuid::new_v4(),
+                        code: (self.input.to_string(), None),
+                    },
                 ));
                 self.console.push(self.input.to_string());
                 return Some(Action::EnterNormal);
@@ -167,10 +173,10 @@ impl Component for Base {
     }
 
     fn message(&mut self, message: Message) -> Option<Action> {
-        if let Message::Implants(_) = message {
-            self.implants.message(message)
-        } else {
-            None
+        match message {
+            Message::Implants(_) => self.implants.message(message),
+            Message::Output(_) => self.output.message(message),
+            _ => None,
         }
     }
 

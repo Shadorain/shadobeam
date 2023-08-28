@@ -10,7 +10,7 @@ service InterfaceService {
 
   rpc GetList(ClientListRequest) returns (ClientListResponse);
 
-  rpc AddTask(AddTaskRequest) returns (AddTaskResponse);
+  rpc AddTask(AddTaskRequest) returns (stream AddTaskResponse);
 }
 
 message ConnectionRequest {}
@@ -25,12 +25,9 @@ message AddTaskRequest {
   string uuid = 1;
 
   string client_uuid = 2;
-  common.ShellCode task = 3;
+  common.Task task = 3;
 }
 
-message AddTaskResponse {}
-
-// message ShellCode {
-//   string command = 1;
-//   optional string arguments = 2;
-// }
+message AddTaskResponse {
+  optional string line = 1;
+}

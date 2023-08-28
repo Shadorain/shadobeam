@@ -3,7 +3,7 @@ use clap::Parser;
 
 use interface::Interface;
 use tokio::sync::mpsc;
-use tui::{initialize_panic_handler, version, App, Message};
+use tui::{initialize_panic_handler, version, App, Message, Task};
 
 mod interface;
 mod tui;
@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
     loop {
         if let Some(message) = message_rx.recv().await {
             match message {
-                Message::SendTask(u, t) => interface.add_task(u, t).await?,
+                Message::SendTask(c_id, task) => interface.add_task(c_id, task, &lmessage_tx).await?,
                 Message::Tick => lmessage_tx.send(Message::Implants(interface.get_list().await?))?,
                 Message::Quit => break,
                 _ => (),

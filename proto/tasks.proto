@@ -7,8 +7,11 @@ service BeaconService {
   // Client requests to connect and will get a ConnectionResponse if successful.
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
 
-  // Poll establishes a stream of tasks and status.
+  // Poll requests tasking from the server
   rpc Poll(PollRequest) returns (PollResponse);
+
+  // Output establishes a stream of tasking output
+  rpc Output(stream OutputRequest) returns (OutputResponse);
 }
 
 message ConnectionRequest {}
@@ -24,7 +27,16 @@ message PollRequest {
 }
 
 message PollResponse {
-  optional common.ShellCode shellcode = 1;
+  optional common.Task task = 2;
 }
 
-message Status { string info = 1; }
+message OutputRequest {
+  string task_uuid = 1;
+  string line = 2;
+}
+
+message OutputResponse {}
+
+message Status {
+  string info = 1;
+}
