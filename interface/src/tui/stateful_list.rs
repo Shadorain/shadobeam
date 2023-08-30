@@ -1,13 +1,21 @@
 #![allow(dead_code)]
 
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
-use ratatui::widgets::ListState;
+use ratatui::{prelude::Rect, widgets::*};
+
+use super::Frame;
 
 #[derive(Default)]
 pub struct StatefulList<T> {
     pub state: ListState,
+    pub scroll_state: ScrollbarState,
     pub items: Vec<T>,
+
+    loops: bool,
 }
 
 impl<T> Deref for StatefulList<T> {
@@ -27,24 +35,43 @@ impl<T> StatefulList<T> {
     pub fn new() -> StatefulList<T> {
         StatefulList {
             state: ListState::default(),
+            scroll_state: ScrollbarState::default(),
             items: Vec::new(),
+            loops: false,
         }
     }
     pub fn with_items(items: Vec<T>) -> StatefulList<T> {
         StatefulList {
             state: ListState::default(),
+            scroll_state: ScrollbarState::default(),
             items,
+            loops: false,
         }
     }
     pub fn replace(&mut self, items: Vec<T>) {
         self.items = items;
+        if self.state.selected().is_none() {
+            self.first();
+        }
+    }
+
+    pub fn set_scrollloop(&mut self, scrollloop: bool) {
+        self.loops = scrollloop;
     }
 
     pub fn next(&mut self) {
+        let len = self.items.len();
+        if len == 0 {
+            return;
+        }
         let i = match self.state.selected() {
             Some(i) => {
-                if i >= self.items.len() - 1 {
-                    0
+                if i >= len - 1 {
+                    if self.loops {
+                        0
+                    } else {
+                        len - 1
+                    }
                 } else {
                     i + 1
                 }
@@ -55,10 +82,18 @@ impl<T> StatefulList<T> {
     }
 
     pub fn previous(&mut self) {
+        let len = self.items.len();
+        if len == 0 {
+            return;
+        }
         let i = match self.state.selected() {
             Some(i) => {
                 if i == 0 {
-                    self.items.len() - 1
+                    if self.loops {
+                        self.items.len() - 1
+                    } else {
+                        0
+                    }
                 } else {
                     i - 1
                 }
@@ -68,11 +103,29 @@ impl<T> StatefulList<T> {
         self.state.select(Some(i));
     }
 
+    pub fn first(&mut self) {
+        self.state.select(Some(0));
+    }
+    pub fn last(&mut self) {
+        let len = self.items.len();
+        if len == 0 {
+            return;
+        }
+        self.state.select(Some(len - 1));
+    }
+
     pub fn unselect(&mut self) {
         self.state.select(None);
     }
 
     pub fn get(&self) -> Option<&T> {
         self.items.get(self.state.selected()?)
+    }
+
+    pub fn render(&mut self, f: &mut Frame, area: Rect, list: List, scrollbar: Option<Scrollbar>) {
+        f.render_stateful_widget(list, area, &mut self.state);
+        if let Some(scroll) = scrollbar {
+            f.render_stateful_widget(scroll, area, &mut self.scroll_state);
+        }
     }
 }
