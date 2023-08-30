@@ -60,5 +60,9 @@ pub trait Component {
     fn message(&mut self, message: Message) -> Option<Action> {
         None
     }
+
+    #[allow(unused_variables)]
+    fn focus(&mut self, focused: bool) {}
+
     fn render(&mut self, f: &mut Frame, area: Rect);
 }

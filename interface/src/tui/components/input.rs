@@ -2,12 +2,14 @@ use crossterm::event::{Event, KeyCode, KeyEvent};
 use ratatui::{prelude::*, widgets::*};
 use tui_input::{backend::crossterm::EventHandler, Input as TuiInput};
 
-use super::{Action, Component, Frame};
+use super::{Action, Component, Frame, Pane};
 
 #[derive(Default)]
 pub struct Input {
     input: TuiInput,
     insert: bool,
+
+    focus: bool,
 }
 
 impl ToString for Input {
@@ -23,6 +25,10 @@ impl Input {
 }
 
 impl Component for Input {
+    fn focus(&mut self, focused: bool) {
+        self.focus = focused;
+    }
+
     fn handle_key_events(&mut self, key: KeyEvent) -> Option<Action> {
         if !self.insert {
             return None;
@@ -42,10 +48,7 @@ impl Component for Input {
         let scroll = self.input.visual_scroll(width as usize);
         let input = Paragraph::new(self.input.value())
             .scroll((0, scroll as u16))
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(Line::from(vec![
+            .block(Pane::Input.block(self.focus).title(Line::from(vec![
                         Span::raw("Enter Input Mode "),
                         Span::styled("(Press ", Style::default().fg(Color::DarkGray)),
                         Span::styled(
@@ -62,8 +65,7 @@ impl Component for Input {
                                 .fg(Color::Gray),
                         ),
                         Span::styled(" to finish)", Style::default().fg(Color::DarkGray)),
-                    ])),
-            );
+                    ])));
         f.render_widget(input, area);
 
         if self.insert {

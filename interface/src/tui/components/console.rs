@@ -1,10 +1,11 @@
 use ratatui::{prelude::*, widgets::*};
 
-use super::{Component, Frame, Pane, StatefulList};
+use super::{Action, Component, Frame, Pane, StatefulList};
 
 #[derive(Default)]
 pub struct Console {
     log: StatefulList<String>,
+    focus: bool,
 }
 
 impl Console {
@@ -14,6 +15,21 @@ impl Console {
 }
 
 impl Component for Console {
+    fn dispatch(&mut self, action: Action) -> Option<Action> {
+        match action {
+            Action::ScrollUp => self.log.previous(),
+            Action::ScrollDown => self.log.next(),
+            Action::ScrollTop => self.log.first(),
+            Action::ScrollBottom => self.log.last(),
+            _ => (),
+        }
+        None
+    }
+
+    fn focus(&mut self, focused: bool) {
+        self.focus = focused;
+    }
+
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let messages: Vec<ListItem> = self
             .log
@@ -28,7 +44,9 @@ impl Component for Console {
             .rev()
             .collect();
         f.render_stateful_widget(
-            List::new(messages).block(Pane::Console.block()),
+            List::new(messages)
+                .highlight_style(Style::new().bold().fg(Color::White))
+                .block(Pane::Console.block(self.focus)),
             area,
             &mut self.log.state,
         );
