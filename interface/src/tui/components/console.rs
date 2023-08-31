@@ -31,24 +31,32 @@ impl Component for Console {
     }
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let messages: Vec<ListItem> = self
-            .log
-            .iter()
-            .enumerate()
-            .map(|(i, m)| {
-                ListItem::new(vec![Line::from(Span::raw(format!(
-                    "{}): (cmd) ❱ {}",
-                    i, m
-                )))])
-            })
-            .rev()
-            .collect();
-        f.render_stateful_widget(
-            List::new(messages)
-                .highlight_style(Style::new().bold().fg(Color::White))
-                .block(Pane::Console.block(self.focus)),
+        self.log.render(
+            f,
             area,
-            &mut self.log.state,
+            |items| {
+                let list: Vec<ListItem> = items
+                    .iter()
+                    .enumerate()
+                    .map(|(i, m)| {
+                        ListItem::new(vec![Line::from(Span::raw(format!(
+                            "{}): (cmd) ❱ {}",
+                            i, m
+                        )))])
+                    })
+                    .rev()
+                    .collect();
+                List::new(list)
+                    .highlight_style(Style::new().bold().fg(Color::White))
+                    .block(Pane::Console.block(self.focus))
+            },
+            Some(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .begin_symbol(Some("▲"))
+                    .thumb_symbol("█")
+                    .track_symbol("│")
+                    .end_symbol(Some("▼")),
+            ),
         );
     }
 }

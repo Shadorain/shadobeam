@@ -42,7 +42,7 @@ impl Implant {
             .await?
             .into_inner();
 
-        println!("Poll: RESPONSE={:?}", response);
+        // println!("Poll: RESPONSE={:?}", response);
 
         Ok(response.task)
     }

@@ -38,12 +38,23 @@ impl Component for Implants {
     }
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let list = self.list.items.clone();
-        let list: Vec<ListItem> = list.iter().map(|c| ListItem::new(c.as_str())).collect();
-        let list = List::new(list)
-            .block(Pane::Implants.block(self.focus))
-            .highlight_style(Style::new().bold().fg(Color::LightRed))
-            .highlight_symbol("❱ ");
-        self.list.render(f, area, list, None);
+        self.list.render(
+            f,
+            area,
+            |items| {
+                let list: Vec<ListItem> = items.iter().map(|c| ListItem::new(c.as_str())).collect();
+                List::new(list)
+                    .block(Pane::Implants.block(self.focus))
+                    .highlight_style(Style::new().bold().fg(Color::LightRed))
+                    .highlight_symbol("❱ ")
+            },
+            Some(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .begin_symbol(Some("▲"))
+                    .thumb_symbol("█")
+                    .track_symbol("│")
+                    .end_symbol(Some("▼")),
+            ),
+        );
     }
 }

@@ -146,6 +146,8 @@ impl InterfaceService for Arc<Beacon> {
             .get(&id)
             .await
             .ok_or(Status::not_found("Implant doesn't exist or isn't connected."))?;
+
+        println!("Task: {:?}", &task);
         implant.push_task(task.into()).await;
 
         let (tx, mut rx) = mpsc::unbounded_channel::<String>();

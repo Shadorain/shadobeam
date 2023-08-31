@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::prelude::*;
 use tokio::sync::mpsc::{self, UnboundedSender};
 use uuid::Uuid;
@@ -170,6 +170,17 @@ impl Component for Base {
                 }
             },
             Mode::Insert => return self.input.handle_key_events(key),
+        })
+    }
+
+    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Option<Action> {
+        Some(match self.mode {
+            Mode::Normal | Mode::Processing => match mouse.kind {
+                MouseEventKind::ScrollUp => Action::ScrollUp,
+                MouseEventKind::ScrollDown => Action::ScrollDown,
+                _ => return None,
+            },
+            _ => return None,
         })
     }
 

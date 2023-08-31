@@ -1,9 +1,6 @@
 #![allow(dead_code)]
 
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
+use std::ops::{Deref, DerefMut};
 
 use ratatui::{prelude::Rect, widgets::*};
 
@@ -79,6 +76,7 @@ impl<T> StatefulList<T> {
             None => 0,
         };
         self.state.select(Some(i));
+        self.scroll_state = self.scroll_state.position(i as u16);
     }
 
     pub fn previous(&mut self) {
@@ -101,10 +99,12 @@ impl<T> StatefulList<T> {
             None => 0,
         };
         self.state.select(Some(i));
+        self.scroll_state = self.scroll_state.position(i as u16);
     }
 
     pub fn first(&mut self) {
         self.state.select(Some(0));
+        self.scroll_state = self.scroll_state.position(0_u16);
     }
     pub fn last(&mut self) {
         let len = self.items.len();
@@ -112,6 +112,7 @@ impl<T> StatefulList<T> {
             return;
         }
         self.state.select(Some(len - 1));
+        self.scroll_state = self.scroll_state.position((len - 1) as u16);
     }
 
     pub fn unselect(&mut self) {
@@ -122,9 +123,16 @@ impl<T> StatefulList<T> {
         self.items.get(self.state.selected()?)
     }
 
-    pub fn render(&mut self, f: &mut Frame, area: Rect, list: List, scrollbar: Option<Scrollbar>) {
-        f.render_stateful_widget(list, area, &mut self.state);
+    pub fn render(
+        &mut self,
+        f: &mut Frame,
+        area: Rect,
+        list_cb: impl Fn(&[T]) -> List,
+        scrollbar: Option<Scrollbar>,
+    ) {
+        f.render_stateful_widget(list_cb(&self.items), area, &mut self.state);
         if let Some(scroll) = scrollbar {
+            self.scroll_state = self.scroll_state.content_length(self.items.len() as u16);
             f.render_stateful_widget(scroll, area, &mut self.scroll_state);
         }
     }
