@@ -10,6 +10,7 @@ pub enum Action {
     Resize(u16, u16),
 
     CompleteInput,
+    ImplantChanged,
 
     NextPane,
     PrevPane,

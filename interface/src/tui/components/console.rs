@@ -1,26 +1,37 @@
+use std::collections::HashMap;
+
 use ratatui::{prelude::*, widgets::*};
 
-use super::{Action, Component, Frame, Pane, StatefulList};
+use super::{center_text, Action, Component, Frame, Pane, StatefulList};
 
 #[derive(Default)]
 pub struct Console {
-    log: StatefulList<String>,
+    log: HashMap<String, StatefulList<String>>,
+    current_key: Option<String>,
+
     focus: bool,
 }
 
 impl Console {
     pub fn push(&mut self, item: String) {
-        self.log.push(item)
+        if let Some(list) = self.current() {
+            list.push(item)
+        }
+    }
+    pub fn current(&mut self) -> Option<&mut StatefulList<String>> {
+        let key = self.current_key.as_ref()?;
+        self.log.get_mut(key)
     }
 }
 
 impl Component for Console {
     fn dispatch(&mut self, action: Action) -> Option<Action> {
+        let list = self.current()?;
         match action {
-            Action::ScrollUp => self.log.previous(),
-            Action::ScrollDown => self.log.next(),
-            Action::ScrollTop => self.log.first(),
-            Action::ScrollBottom => self.log.last(),
+            Action::ScrollUp => list.previous(),
+            Action::ScrollDown => list.next(),
+            Action::ScrollTop => list.first(),
+            Action::ScrollBottom => list.last(),
             _ => (),
         }
         None
@@ -31,32 +42,41 @@ impl Component for Console {
     }
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        self.log.render(
-            f,
-            area,
-            |items| {
-                let list: Vec<ListItem> = items
-                    .iter()
-                    .enumerate()
-                    .map(|(i, m)| {
-                        ListItem::new(vec![Line::from(Span::raw(format!(
-                            "{}): (cmd) ❱ {}",
-                            i, m
-                        )))])
-                    })
-                    .rev()
-                    .collect();
-                List::new(list)
-                    .highlight_style(Style::new().bold().fg(Color::White))
-                    .block(Pane::Console.block(self.focus))
-            },
-            Some(
-                Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                    .begin_symbol(Some("▲"))
-                    .thumb_symbol("█")
-                    .track_symbol("│")
-                    .end_symbol(Some("▼")),
-            ),
-        );
+        let focus = self.focus;
+        if let Some(list) = self.current() {
+            list.render(
+                f,
+                area,
+                |items| {
+                    let list: Vec<ListItem> = items
+                        .iter()
+                        .enumerate()
+                        .map(|(i, m)| {
+                            ListItem::new(vec![Line::from(Span::raw(format!(
+                                "{}): (cmd) ❱ {}",
+                                i, m
+                            )))])
+                        })
+                        .rev()
+                        .collect();
+                    List::new(list)
+                        .highlight_style(Style::new().bold().fg(Color::White))
+                        .block(Pane::Console.block(focus))
+                },
+                Some(
+                    Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                        .begin_symbol(Some("▲"))
+                        .thumb_symbol("█")
+                        .track_symbol("│")
+                        .end_symbol(Some("▼")),
+                ),
+            );
+        } else {
+            f.render_widget(
+                Paragraph::new("No previous commands found.").alignment(Alignment::Center),
+                center_text(area, 1),
+            );
+            f.render_widget(Pane::Console.block(focus), area)
+        }
     }
 }

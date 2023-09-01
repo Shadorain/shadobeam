@@ -1,27 +1,32 @@
+use std::collections::HashMap;
+
 use ratatui::{prelude::*, widgets::*};
 
-use super::{Action, Component, Frame, Message, Pane, StatefulList};
+use super::{center_text, Action, Component, Frame, Message, Pane, StatefulList};
 
 #[derive(Default)]
 pub struct Output {
-    output: StatefulList<String>,
+    output: HashMap<String, HashMap<u16, StatefulList<String>>>,
+    current_key: Option<(String, u16)>,
 
     focus: bool,
 }
 
 impl Output {
-    pub fn push(&mut self, line: String) {
-        self.output.push(line)
+    pub fn current(&mut self) -> Option<&mut StatefulList<String>> {
+        let key = self.current_key.as_ref()?;
+        self.output.get_mut(&key.0)?.get_mut(&key.1)
     }
 }
 
 impl Component for Output {
     fn dispatch(&mut self, action: Action) -> Option<Action> {
+        let list = self.current()?;
         match action {
-            Action::ScrollUp => self.output.previous(),
-            Action::ScrollDown => self.output.next(),
-            Action::ScrollTop => self.output.first(),
-            Action::ScrollBottom => self.output.last(),
+            Action::ScrollUp => list.previous(),
+            Action::ScrollDown => list.next(),
+            Action::ScrollTop => list.first(),
+            Action::ScrollBottom => list.last(),
             _ => (),
         }
         None
@@ -29,7 +34,7 @@ impl Component for Output {
 
     fn message(&mut self, message: Message) -> Option<Action> {
         if let Message::Output(line) = message {
-            self.push(line)
+            self.current()?.push(line)
         }
         None
     }
@@ -39,22 +44,32 @@ impl Component for Output {
     }
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        self.output.render(
-            f,
-            area,
-            |items| {
-                let list: Vec<ListItem> = items.iter().map(|c| ListItem::new(c.as_str())).collect();
-                List::new(list)
-                    .highlight_style(Style::new().bold().fg(Color::White))
-                    .block(Pane::Output.block(self.focus))
-            },
-            Some(
-                Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                    .begin_symbol(Some("▲"))
-                    .thumb_symbol("█")
-                    .track_symbol("│")
-                    .end_symbol(Some("▼")),
-            ),
-        );
+        let focus = self.focus;
+        if let Some(list) = self.current() {
+            list.render(
+                f,
+                area,
+                |items| {
+                    let list: Vec<ListItem> =
+                        items.iter().map(|c| ListItem::new(c.as_str())).collect();
+                    List::new(list)
+                        .highlight_style(Style::new().bold().fg(Color::White))
+                        .block(Pane::Output.block(focus))
+                },
+                Some(
+                    Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                        .begin_symbol(Some("▲"))
+                        .thumb_symbol("█")
+                        .track_symbol("│")
+                        .end_symbol(Some("▼")),
+                ),
+            );
+        } else {
+            f.render_widget(
+                Paragraph::new("No implants or commands selected.").alignment(Alignment::Center),
+                center_text(area, 1),
+            );
+            f.render_widget(Pane::Output.block(focus), area)
+        }
     }
 }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use crossterm::event::{KeyEvent, MouseEvent};
-use ratatui::layout::Rect;
+use ratatui::prelude::*;
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::{action::*, message::*, Event, Frame, StatefulList};
@@ -22,6 +22,17 @@ mod console;
 mod implants;
 mod input;
 mod output;
+
+pub fn center_text(area: Rect, lines: u16) -> Rect {
+    Layout::new()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(49),
+            Constraint::Length(lines),
+            Constraint::Min(0),
+        ])
+        .split(area)[1]
+}
 
 pub trait Component {
     #[allow(unused_variables)]

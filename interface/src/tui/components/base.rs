@@ -187,14 +187,17 @@ impl Component for Base {
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         match action {
             Action::CompleteInput => {
-                self.send(Message::SendTask(
-                    self.implants.uuid().to_string(),
-                    Task {
-                        uuid: Uuid::new_v4(),
-                        code: (self.input.to_string(), None),
-                    },
-                ));
-                self.console.push(self.input.to_string());
+                // TODO: Handle if uuid is None.
+                if let Some(uuid) = self.implants.uuid() {
+                    self.send(Message::SendTask(
+                        uuid,
+                        Task {
+                            uuid: Uuid::new_v4(),
+                            code: (self.input.to_string(), None),
+                        },
+                    ));
+                    self.console.push(self.input.to_string());
+                }
                 return Some(Action::EnterNormal);
             }
 

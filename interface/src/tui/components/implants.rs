@@ -1,6 +1,6 @@
 use ratatui::{prelude::*, widgets::*};
 
-use super::{Action, Component, Frame, Message, Pane, StatefulList};
+use super::{center_text, Action, Component, Frame, Message, Pane, StatefulList};
 
 #[derive(Default)]
 pub struct Implants {
@@ -9,8 +9,8 @@ pub struct Implants {
 }
 
 impl Implants {
-    pub fn uuid(&self) -> &str {
-        self.list.get().expect("An Implant should be selected.")
+    pub fn uuid(&self) -> Option<String> {
+        self.list.get().map(|x| x.to_string()) //.expect("An Implant should be selected.")
     }
 }
 
@@ -28,7 +28,7 @@ impl Component for Implants {
 
     fn message(&mut self, message: Message) -> Option<Action> {
         if let Message::Implants(list) = message {
-            self.list.replace(list.to_vec());
+            self.list.replace(list);
         }
         None
     }
@@ -38,23 +38,33 @@ impl Component for Implants {
     }
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        self.list.render(
-            f,
-            area,
-            |items| {
-                let list: Vec<ListItem> = items.iter().map(|c| ListItem::new(c.as_str())).collect();
-                List::new(list)
-                    .block(Pane::Implants.block(self.focus))
-                    .highlight_style(Style::new().bold().fg(Color::LightRed))
-                    .highlight_symbol("❱ ")
-            },
-            Some(
-                Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                    .begin_symbol(Some("▲"))
-                    .thumb_symbol("█")
-                    .track_symbol("│")
-                    .end_symbol(Some("▼")),
-            ),
-        );
+        let focus = self.focus;
+        if self.list.len() > 0 {
+            self.list.render(
+                f,
+                area,
+                |items| {
+                    let list: Vec<ListItem> =
+                        items.iter().map(|c| ListItem::new(c.as_str())).collect();
+                    List::new(list)
+                        .block(Pane::Implants.block(focus))
+                        .highlight_style(Style::new().bold().fg(Color::LightRed))
+                        .highlight_symbol("❱ ")
+                },
+                Some(
+                    Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                        .begin_symbol(Some("▲"))
+                        .thumb_symbol("█")
+                        .track_symbol("│")
+                        .end_symbol(Some("▼")),
+                ),
+            );
+        } else {
+            f.render_widget(
+                Paragraph::new("No implants found.").alignment(Alignment::Center),
+                center_text(area, 1),
+            );
+            f.render_widget(Pane::Implants.block(focus), area)
+        }
     }
 }
