@@ -133,7 +133,16 @@ impl<T> StatefulList<T> {
         f.render_stateful_widget(list_cb(&self.items), area, &mut self.state);
         if let Some(scroll) = scrollbar {
             self.scroll_state = self.scroll_state.content_length(self.items.len() as u16);
-            f.render_stateful_widget(scroll, area, &mut self.scroll_state);
+            f.render_stateful_widget(
+                scroll,
+                Rect {
+                    x: area.x,
+                    y: area.y + 1,
+                    width: area.width,
+                    height: area.height - 2,
+                },
+                &mut self.scroll_state,
+            );
         }
     }
 }
