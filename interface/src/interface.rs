@@ -1,14 +1,13 @@
 use anyhow::Result;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use super::{
-    Task,
-    Message,
     common,
     iface::{
         interface_service_client::InterfaceServiceClient, AddTaskRequest, ClientListRequest,
         ConnectionRequest,
     },
+    Message, Task,
 };
 
 use tonic::transport::Channel;
@@ -20,7 +19,7 @@ impl From<Task> for common::Task {
             shellcode: Some(common::ShellCode {
                 command: value.code.0,
                 arguments: value.code.1.unwrap_or_default(),
-            })
+            }),
         }
     }
 }
@@ -56,21 +55,47 @@ impl Interface {
         Ok(response.list)
     }
 
-    pub async fn add_task(&mut self, client_uuid: String, task: Task, tx: &UnboundedSender<Message>) -> Result<()> {
-        let mut response = self.client
+    pub async fn add_task(
+        &mut self,
+        client_uuid: String,
+        task: Task,
+        tx: UnboundedSender<Message>,
+    ) -> Result<()> {
+        let mut response = self
+            .client
             .add_task(tonic::Request::new(AddTaskRequest {
                 uuid: self.uuid.clone(),
                 client_uuid,
                 task: Some(task.into()),
             }))
-            .await?.into_inner();
+            .await?
+            .into_inner();
+        tokio::spawn(async move {
+            while let Some(r) = response.message().await.unwrap() {
+                if let Some(line) = r.line {
+                    tx.send(Message::Output(line)).unwrap();
+                } else {
+                    break;
+                }
+            }
+        });
 
-        while let Some(r) = response.message().await? {
-            if let Some(line) = r.line {
-                tx.send(Message::Output(line))?;
+        Ok(())
+    }
+
+    pub async fn run(
+        mut self,
+        msg_tx: UnboundedSender<Message>,
+        mut msg_rx: UnboundedReceiver<Message>,
+    ) -> Result<()> {
+        while let Some(message) = msg_rx.recv().await {
+            match message {
+                Message::SendTask(c_id, task) => self.add_task(c_id, task, msg_tx.clone()).await?,
+                Message::Tick => msg_tx.send(Message::Implants(self.get_list().await?))?,
+                Message::Quit => break,
+                _ => (),
             }
         }
-
         Ok(())
     }
 }

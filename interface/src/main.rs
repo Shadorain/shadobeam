@@ -33,8 +33,8 @@ async fn main() -> Result<()> {
     initialize_panic_handler();
 
     let cli = Cli::parse();
-    let mut interface = Interface::connect(cli.url).await?;
-    let (message_tx, mut message_rx) = mpsc::unbounded_channel::<Message>();
+    let interface = Interface::connect(cli.url).await?;
+    let (message_tx, message_rx) = mpsc::unbounded_channel::<Message>();
     let (lmessage_tx, lmessage_rx) = mpsc::unbounded_channel::<Message>();
 
     let mut app = App::new((APP_TICK_RATE, RENDER_TICK_RATE))?;
@@ -42,15 +42,5 @@ async fn main() -> Result<()> {
         app.run(Some(message_tx), Some(lmessage_rx)).await.unwrap();
     });
 
-    loop {
-        if let Some(message) = message_rx.recv().await {
-            match message {
-                Message::SendTask(c_id, task) => interface.add_task(c_id, task, &lmessage_tx).await?,
-                Message::Tick => lmessage_tx.send(Message::Implants(interface.get_list().await?))?,
-                Message::Quit => break,
-                _ => (),
-            }
-        }
-    }
-    Ok(())
+    interface.run(lmessage_tx.clone(), message_rx).await
 }
