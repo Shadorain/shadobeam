@@ -22,6 +22,16 @@ impl Console {
         let key = self.current_key.as_ref()?;
         self.log.get_mut(key)
     }
+
+    pub fn set_key(&mut self, key: String) -> Option<usize> {
+        self.log.insert(key.clone(), StatefulList::new());
+
+        self.current_key = Some(key);
+        if let Some(list) = self.current() {
+            return list.state.selected();
+        }
+        None
+    }
 }
 
 impl Component for Console {
@@ -33,6 +43,9 @@ impl Component for Console {
             Action::ScrollTop => list.first(),
             Action::ScrollBottom => list.last(),
             _ => (),
+        }
+        if let Some(list) = self.current() {
+            return Some(Action::ConsoleChanged(list.state.selected()?));
         }
         None
     }

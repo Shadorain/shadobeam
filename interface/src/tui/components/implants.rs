@@ -30,6 +30,9 @@ impl Component for Implants {
         if let Message::Implants(list) = message {
             self.list.replace(list);
         }
+        if self.list.changed() {
+            return Some(Action::ImplantChanged);
+        }
         None
     }
 

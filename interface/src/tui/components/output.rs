@@ -6,8 +6,8 @@ use super::{center_text, Action, Component, Frame, Message, Pane, StatefulList};
 
 #[derive(Default)]
 pub struct Output {
-    output: HashMap<String, HashMap<u16, StatefulList<String>>>,
-    current_key: Option<(String, u16)>,
+    output: HashMap<String, HashMap<usize, StatefulList<String>>>,
+    current_key: Option<(String, usize)>,
 
     focus: bool,
 }
@@ -16,6 +16,12 @@ impl Output {
     pub fn current(&mut self) -> Option<&mut StatefulList<String>> {
         let key = self.current_key.as_ref()?;
         self.output.get_mut(&key.0)?.get_mut(&key.1)
+    }
+
+    pub fn set_key(&mut self, key: (String, usize)) {
+        self.output
+            .insert(key.0.clone(), HashMap::from([(key.1, StatefulList::new())]));
+        self.current_key = Some(key);
     }
 }
 

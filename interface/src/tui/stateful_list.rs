@@ -13,6 +13,7 @@ pub struct StatefulList<T> {
     pub items: Vec<T>,
 
     loops: bool,
+    changed: bool,
 }
 
 impl<T> Deref for StatefulList<T> {
@@ -35,6 +36,7 @@ impl<T> StatefulList<T> {
             scroll_state: ScrollbarState::default(),
             items: Vec::new(),
             loops: false,
+            changed: false,
         }
     }
     pub fn with_items(items: Vec<T>) -> StatefulList<T> {
@@ -43,12 +45,14 @@ impl<T> StatefulList<T> {
             scroll_state: ScrollbarState::default(),
             items,
             loops: false,
+            changed: false,
         }
     }
     pub fn replace(&mut self, items: Vec<T>) {
         self.items = items;
         if self.state.selected().is_none() {
             self.first();
+            self.changed = true;
         }
     }
 
@@ -75,6 +79,7 @@ impl<T> StatefulList<T> {
             }
             None => 0,
         };
+        self.changed = true;
         self.state.select(Some(i));
         self.scroll_state = self.scroll_state.position(i as u16);
     }
@@ -98,11 +103,13 @@ impl<T> StatefulList<T> {
             }
             None => 0,
         };
+        self.changed = true;
         self.state.select(Some(i));
         self.scroll_state = self.scroll_state.position(i as u16);
     }
 
     pub fn first(&mut self) {
+        self.changed = true;
         self.state.select(Some(0));
         self.scroll_state = self.scroll_state.position(0_u16);
     }
@@ -111,6 +118,7 @@ impl<T> StatefulList<T> {
         if len == 0 {
             return;
         }
+        self.changed = true;
         self.state.select(Some(len - 1));
         self.scroll_state = self.scroll_state.position((len - 1) as u16);
     }
@@ -121,6 +129,12 @@ impl<T> StatefulList<T> {
 
     pub fn get(&self) -> Option<&T> {
         self.items.get(self.state.selected()?)
+    }
+
+    pub fn changed(&mut self) -> bool {
+        let changed = self.changed;
+        self.changed = false;
+        changed
     }
 
     pub fn render(

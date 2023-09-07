@@ -222,6 +222,13 @@ impl Component for Base {
                 self.revert_pane();
             }
 
+            Action::ImplantChanged => {
+                return Some(Action::ConsoleChanged(
+                    self.console.set_key(self.implants.uuid()?)?,
+                ));
+            }
+            Action::ConsoleChanged(k) => self.output.set_key((self.implants.uuid()?, k)),
+
             _ => {
                 let pane = self.selected_pane.0;
                 let cmp = &mut self.components()[pane];

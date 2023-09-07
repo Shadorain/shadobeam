@@ -11,6 +11,7 @@ pub enum Action {
 
     CompleteInput,
     ImplantChanged,
+    ConsoleChanged(usize),
 
     NextPane,
     PrevPane,
