@@ -66,7 +66,7 @@ impl Component for Output {
                     Scrollbar::new(ScrollbarOrientation::VerticalRight)
                         .begin_symbol(Some("▲"))
                         .thumb_symbol("█")
-                        .track_symbol("│")
+                        .track_symbol(Some("│"))
                         .end_symbol(Some("▼")),
                 ),
             );

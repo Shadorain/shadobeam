@@ -3,7 +3,7 @@ use clap::Parser;
 
 use interface::Interface;
 use tokio::sync::mpsc;
-use tui::{initialize_panic_handler, version, App, Message, Task};
+use tui::{utils::*, App, Message, Task};
 
 mod interface;
 mod tui;
@@ -29,6 +29,8 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    initialize_logging()?;
+
     // Fallback catch for panics.
     initialize_panic_handler();
 

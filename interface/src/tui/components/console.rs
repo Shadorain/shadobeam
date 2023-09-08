@@ -45,7 +45,9 @@ impl Component for Console {
             _ => (),
         }
         if let Some(list) = self.current() {
-            return Some(Action::ConsoleChanged(list.state.selected()?));
+            if list.changed() {
+                return Some(Action::ConsoleChanged(list.state.selected()?));
+            }
         }
         None
     }
@@ -80,7 +82,7 @@ impl Component for Console {
                     Scrollbar::new(ScrollbarOrientation::VerticalRight)
                         .begin_symbol(Some("▲"))
                         .thumb_symbol("█")
-                        .track_symbol("│")
+                        .track_symbol(Some("│"))
                         .end_symbol(Some("▼")),
                 ),
             );

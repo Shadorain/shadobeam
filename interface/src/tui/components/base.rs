@@ -223,16 +223,23 @@ impl Component for Base {
             }
 
             Action::ImplantChanged => {
+                log::info!("IMPLANT: {}", self.implants.uuid()?);
                 return Some(Action::ConsoleChanged(
                     self.console.set_key(self.implants.uuid()?)?,
                 ));
             }
-            Action::ConsoleChanged(k) => self.output.set_key((self.implants.uuid()?, k)),
+            Action::ConsoleChanged(k) => {
+                log::info!("CONSOLE: {}, {}", self.implants.uuid()?, k);
+                self.output.set_key((self.implants.uuid()?, k))
+            }
 
             _ => {
                 let pane = self.selected_pane.0;
                 let cmp = &mut self.components()[pane];
-                return cmp.dispatch(action);
+                if let Some(a) = cmp.dispatch(action) {
+                    log::info!("Action: {:?}", a);
+                    return Some(a);
+                }
             }
         }
         None

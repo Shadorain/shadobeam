@@ -65,12 +65,14 @@ impl<T> StatefulList<T> {
         if len == 0 {
             return;
         }
+        self.changed = true;
         let i = match self.state.selected() {
             Some(i) => {
                 if i >= len - 1 {
                     if self.loops {
                         0
                     } else {
+                        self.changed = false;
                         len - 1
                     }
                 } else {
@@ -79,7 +81,6 @@ impl<T> StatefulList<T> {
             }
             None => 0,
         };
-        self.changed = true;
         self.state.select(Some(i));
         self.scroll_state = self.scroll_state.position(i as u16);
     }
@@ -89,12 +90,14 @@ impl<T> StatefulList<T> {
         if len == 0 {
             return;
         }
+        self.changed = true;
         let i = match self.state.selected() {
             Some(i) => {
                 if i == 0 {
                     if self.loops {
                         self.items.len() - 1
                     } else {
+                        self.changed = false;
                         0
                     }
                 } else {
@@ -103,13 +106,16 @@ impl<T> StatefulList<T> {
             }
             None => 0,
         };
-        self.changed = true;
         self.state.select(Some(i));
         self.scroll_state = self.scroll_state.position(i as u16);
     }
 
     pub fn first(&mut self) {
-        self.changed = true;
+        if let Some(s) = self.state.selected() {
+            if s != 0 {
+                self.changed = true;
+            }
+        }
         self.state.select(Some(0));
         self.scroll_state = self.scroll_state.position(0_u16);
     }
@@ -118,7 +124,11 @@ impl<T> StatefulList<T> {
         if len == 0 {
             return;
         }
-        self.changed = true;
+        if let Some(s) = self.state.selected() {
+            if s != len - 1 {
+                self.changed = true;
+            }
+        }
         self.state.select(Some(len - 1));
         self.scroll_state = self.scroll_state.position((len - 1) as u16);
     }
