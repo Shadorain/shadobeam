@@ -225,12 +225,12 @@ impl Component for Base {
             Action::ImplantChanged => {
                 log::info!("IMPLANT: {}", self.implants.uuid()?);
                 return Some(Action::ConsoleChanged(
-                    self.console.set_key(self.implants.uuid()?)?,
+                    self.console.set_key(self.implants.uuid())?,
                 ));
             }
             Action::ConsoleChanged(k) => {
                 log::info!("CONSOLE: {}, {}", self.implants.uuid()?, k);
-                self.output.set_key((self.implants.uuid()?, k))
+                self.output.set_key(Some((self.implants.uuid()?, k)))
             }
 
             _ => {

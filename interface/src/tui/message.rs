@@ -6,7 +6,7 @@ pub enum Message {
     None,
     Quit,
     Tick,
-    SendTask(String, Task),
+    SendTask(Uuid, Task),
     Implants(Vec<String>),
     Output(String),
 }

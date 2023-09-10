@@ -90,7 +90,7 @@ impl Interface {
     ) -> Result<()> {
         while let Some(message) = msg_rx.recv().await {
             match message {
-                Message::SendTask(c_id, task) => self.add_task(c_id, task, msg_tx.clone()).await?,
+                Message::SendTask(c_id, task) => self.add_task(c_id.to_string(), task, msg_tx.clone()).await?,
                 Message::Tick => msg_tx.send(Message::Implants(self.get_list().await?))?,
                 Message::Quit => break,
                 _ => (),

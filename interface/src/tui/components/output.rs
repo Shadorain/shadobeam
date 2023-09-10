@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
 use ratatui::{prelude::*, widgets::*};
+use uuid::Uuid;
 
 use super::{center_text, Action, Component, Frame, Message, Pane, StatefulList};
 
+type Key = (Uuid, usize);
+
 #[derive(Default)]
 pub struct Output {
-    output: HashMap<String, HashMap<usize, StatefulList<String>>>,
-    current_key: Option<(String, usize)>,
+    output_map: HashMap<Key, StatefulList<String>>,
+    current_key: Option<Key>,
 
     focus: bool,
 }
@@ -15,13 +18,15 @@ pub struct Output {
 impl Output {
     pub fn current(&mut self) -> Option<&mut StatefulList<String>> {
         let key = self.current_key.as_ref()?;
-        self.output.get_mut(&key.0)?.get_mut(&key.1)
+        self.output_map.get_mut(key)
     }
 
-    pub fn set_key(&mut self, key: (String, usize)) {
-        self.output
-            .insert(key.0.clone(), HashMap::from([(key.1, StatefulList::new())]));
-        self.current_key = Some(key);
+    pub fn add_console(&mut self, key: Key) {
+        self.output_map.insert(key, StatefulList::new());
+    }
+
+    pub fn set_key(&mut self, key: Option<Key>) {
+        self.current_key = key;
     }
 }
 

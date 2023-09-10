@@ -1,26 +1,39 @@
 use ratatui::{prelude::*, widgets::*};
+use uuid::Uuid;
 
 use super::{center_text, Action, Component, Frame, Message, Pane, StatefulList};
 
 #[derive(Default)]
+struct Implant {
+    id_str: String,
+    id: Uuid,
+}
+impl Implant {
+    pub fn new(id_str: String) -> Self {
+        let id = Uuid::parse_str(&id_str).expect("Failed to parse implant uuid.");
+        Implant { id_str, id }
+    }
+}
+
+#[derive(Default)]
 pub struct Implants {
-    list: StatefulList<String>,
+    list_map: StatefulList<Implant>,
     focus: bool,
 }
 
 impl Implants {
-    pub fn uuid(&self) -> Option<String> {
-        self.list.get().map(|x| x.to_string()) //.expect("An Implant should be selected.")
+    pub fn uuid(&self) -> Option<Uuid> {
+        self.list_map.get().map(|x| x.id)
     }
 }
 
 impl Component for Implants {
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         match action {
-            Action::ScrollUp => self.list.previous(),
-            Action::ScrollDown => self.list.next(),
-            Action::ScrollTop => self.list.first(),
-            Action::ScrollBottom => self.list.last(),
+            Action::ScrollUp => self.list_map.previous(),
+            Action::ScrollDown => self.list_map.next(),
+            Action::ScrollTop => self.list_map.first(),
+            Action::ScrollBottom => self.list_map.last(),
             _ => (),
         }
         None
@@ -28,9 +41,10 @@ impl Component for Implants {
 
     fn message(&mut self, message: Message) -> Option<Action> {
         if let Message::Implants(list) = message {
-            self.list.replace(list);
+            self.list_map
+                .replace(list.into_iter().map(|id| Implant::new(id)).collect());
         }
-        if self.list.changed() {
+        if self.list_map.changed() {
             return Some(Action::ImplantChanged);
         }
         None
@@ -42,13 +56,15 @@ impl Component for Implants {
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let focus = self.focus;
-        if self.list.len() > 0 {
-            self.list.render(
+        if self.list_map.len() > 0 {
+            self.list_map.render(
                 f,
                 area,
                 |items| {
-                    let list: Vec<ListItem> =
-                        items.iter().map(|c| ListItem::new(c.as_str())).collect();
+                    let list: Vec<ListItem> = items
+                        .iter()
+                        .map(|c| ListItem::new(c.id_str.as_str()))
+                        .collect();
                     List::new(list)
                         .block(Pane::Implants.block(focus))
                         .highlight_style(Style::new().bold().fg(Color::LightRed))
