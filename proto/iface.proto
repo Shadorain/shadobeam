@@ -8,23 +8,32 @@ service InterfaceService {
   // successful.
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
 
-  rpc GetList(ClientListRequest) returns (ClientListResponse);
+  rpc ImplantInfo(ImplantInfoRequest) returns (stream ImplantInfoResponse);
 
   rpc AddTask(AddTaskRequest) returns (stream AddTaskResponse);
 }
 
 message ConnectionRequest {}
 
-message ConnectionResponse { string uuid = 1; }
+message ConnectionResponse {
+  common.Uuid uuid = 1;
+}
 
-message ClientListRequest { string uuid = 1; }
+message ImplantInfoRequest {
+  common.Uuid uuid = 1;
+}
 
-message ClientListResponse { repeated string list = 1; }
+message ImplantInfoResponse {
+  oneof itype {
+    common.ImplantInfo add = 1;
+    common.Uuid remove = 2;
+  }
+}
 
 message AddTaskRequest {
-  string uuid = 1;
+  common.Uuid uuid = 1;
 
-  string client_uuid = 2;
+  common.Uuid client_uuid = 2;
   common.Task task = 3;
 }
 

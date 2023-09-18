@@ -17,13 +17,12 @@ service BeaconService {
 message ConnectionRequest {}
 
 message ConnectionResponse {
-  string uuid = 1;
+  common.Uuid uuid = 1;
   uint32 heartbeat = 2;
 }
 
 message PollRequest {
-  string uuid = 1;
-  // Status status = 2;
+  common.Uuid uuid = 1;
 }
 
 message PollResponse {
@@ -31,12 +30,8 @@ message PollResponse {
 }
 
 message OutputRequest {
-  string task_uuid = 1;
+  common.Uuid task_uuid = 1;
   string line = 2;
 }
 
 message OutputResponse {}
-
-message Status {
-  string info = 1;
-}
