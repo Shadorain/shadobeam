@@ -1,62 +1,98 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use anyhow::Result;
 use ratatui::{prelude::*, widgets::*};
+use uuid::Uuid;
 
-use super::{Action, Component, Frame, ImplantsAction, Message, Pane, StatefulList};
+use super::{
+    center_text, Action, Component, Frame, ImplantControl, ImplantInfo, Message, Pane, StatefulList,
+};
+
+#[derive(Default)]
+struct Implant {
+    info: ImplantInfo,
+}
+impl Implant {
+    pub fn new(info: ImplantInfo) -> Self {
+        Implant { info }
+    }
+}
 
 #[derive(Default)]
 pub struct Implants {
-    list: StatefulList<String>,
+    list: StatefulList<Implant>,
+    focus: bool,
 }
 
 impl Implants {
-    pub fn uuid(&self) -> &str {
-        self.list.get().expect("An Implant should be selected.")
+    pub fn uuid(&self) -> Option<Uuid> {
+        self.list.get().map(|x| x.info.uuid)
     }
 }
 
 impl Component for Implants {
-    fn handle_key_events(&mut self, key: KeyEvent) -> Option<Action> {
-        Some(
-            match key.code {
-                KeyCode::Char('j') | KeyCode::Down => ImplantsAction::NextItem,
-                KeyCode::Char('k') | KeyCode::Up => ImplantsAction::PrevItem,
-                _ => return None,
-            }
-            .into(),
-        )
+    fn init(
+        &mut self,
+        _: tokio::sync::mpsc::UnboundedSender<Action>,
+        _: Option<tokio::sync::mpsc::UnboundedSender<Message>>,
+    ) -> Result<()> {
+        self.list.first();
+        Ok(())
     }
-
     fn dispatch(&mut self, action: Action) -> Option<Action> {
-        if let Action::Implants(i) = action {
-            match i {
-                ImplantsAction::NextItem => self.list.next(),
-                ImplantsAction::PrevItem => self.list.previous(),
-            }
+        match action {
+            Action::ScrollUp => self.list.previous(),
+            Action::ScrollDown => self.list.next(),
+            Action::ScrollTop => self.list.first(),
+            Action::ScrollBottom => self.list.last(),
+            _ => (),
         }
         None
     }
 
     fn message(&mut self, message: Message) -> Option<Action> {
-        if let Message::Implants(list) = message {
-            self.list.replace(list.to_vec())
+        if let Message::Implants(control) = message {
+            match control {
+                ImplantControl::Add(info) => self.list.push(Implant::new(info)),
+                ImplantControl::Remove(uuid) => self.list.retain(|val| val.info.uuid != uuid),
+            }
+            return Some(Action::ImplantChanged);
         }
         None
     }
 
+    fn focus(&mut self, focused: bool) {
+        self.focus = focused;
+    }
+
     fn render(&mut self, f: &mut Frame, area: Rect) {
-        let implants: Vec<ListItem> = self
-            .list
-            .items
-            .iter()
-            .map(|c| ListItem::new(c.as_str()))
-            .collect();
-        f.render_stateful_widget(
-            List::new(implants)
-                .block(Pane::Implants.block().green())
-                .highlight_style(Style::new().bold().fg(Color::LightRed))
-                .highlight_symbol("❱ "),
-            area,
-            &mut self.list.state,
-        );
+        let focus = self.focus;
+        if self.list.len() > 0 {
+            self.list.render(
+                f,
+                area,
+                |items| {
+                    let list: Vec<ListItem> = items
+                        .iter()
+                        .map(|c| ListItem::new(c.info.uuid.to_string()))
+                        .collect();
+                    List::new(list)
+                        .block(Pane::Implants.block(focus))
+                        .highlight_style(Style::new().bold().fg(Color::LightRed))
+                        .highlight_symbol("❱ ")
+                },
+                Some(
+                    Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                        .begin_symbol(Some("▲"))
+                        .thumb_symbol("█")
+                        .track_symbol(Some("│"))
+                        .end_symbol(Some("▼")),
+                ),
+            );
+        } else {
+            f.render_widget(
+                Paragraph::new("No implants found.").alignment(Alignment::Center),
+                center_text(area, 1),
+            );
+            f.render_widget(Pane::Implants.block(focus), area)
+        }
     }
 }

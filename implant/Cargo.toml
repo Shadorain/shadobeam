@@ -4,10 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tonic = "0.9"
-prost = "0.11"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "process"] }
+anyhow = "1.0.75"
 rand = "0.8.5"
+uuid = "1.4.1"
+
+tonic = "0.10"
+prost = "0.12"
+
+async-stream = "0.3.5"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "process"] }
 
 [build-dependencies]
-tonic-build = "0.9"
+tonic-build = "0.10"

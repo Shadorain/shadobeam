@@ -73,6 +73,9 @@ impl EventHandler {
                                     CrosstermEvent::Resize(x, y) => {
                                         event_tx.send(Event::Resize(x, y)).unwrap();
                                     },
+                                    CrosstermEvent::Mouse(mouse) => {
+                                        event_tx.send(Event::Mouse(mouse)).unwrap();
+                                    },
                                     _ => {},
                                 }
                             }

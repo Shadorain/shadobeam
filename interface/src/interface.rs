@@ -1,20 +1,20 @@
 use anyhow::Result;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use uuid::Uuid;
 
 use super::{
-    common::ShellCode,
     iface::{
-        interface_service_client::InterfaceServiceClient, AddTaskRequest, ClientListRequest,
-        ConnectionRequest,
+        interface_service_client::InterfaceServiceClient, AddTaskRequest, ConnectionRequest,
+        ImplantInfoRequest,
     },
+    Message, Task,
 };
 
 use tonic::transport::Channel;
 
-type Task = ShellCode;
-
 pub struct Interface {
     client: InterfaceServiceClient<Channel>,
-    uuid: String,
+    uuid: Uuid,
 }
 
 impl Interface {
@@ -27,33 +27,68 @@ impl Interface {
 
         Ok(Self {
             client,
-            uuid: response.uuid,
+            uuid: response.uuid.unwrap().into(),
         })
     }
 
-    pub async fn get_list(&mut self) -> Result<Vec<String>> {
-        let response = self
+    pub async fn run(
+        mut self,
+        msg_tx: UnboundedSender<Message>,
+        mut msg_rx: UnboundedReceiver<Message>,
+    ) -> Result<()> {
+        self.implant_info(msg_tx.clone()).await?;
+
+        while let Some(message) = msg_rx.recv().await {
+            match message {
+                Message::SendTask(c_id, task) => self.add_task(c_id, task, msg_tx.clone()).await?,
+                Message::Quit => break,
+                _ => (),
+            }
+        }
+        Ok(())
+    }
+
+    async fn implant_info(&mut self, tx: UnboundedSender<Message>) -> Result<()> {
+        let mut response = self
             .client
-            .get_list(tonic::Request::new(ClientListRequest {
-                uuid: self.uuid.clone(),
+            .implant_info(tonic::Request::new(ImplantInfoRequest {
+                uuid: Some(self.uuid.into()),
             }))
             .await?
             .into_inner();
 
-        Ok(response.list)
+        tokio::spawn(async move {
+            while let Some(r) = response.message().await.unwrap() {
+                tx.send(Message::Implants(r.itype.unwrap().into())).unwrap();
+            }
+        });
+        Ok(())
     }
 
-    pub async fn add_task(&mut self, client_uuid: String, task: String) -> Result<()> {
-        self.client
+    async fn add_task(
+        &mut self,
+        client_uuid: Uuid,
+        task: Task,
+        tx: UnboundedSender<Message>,
+    ) -> Result<()> {
+        let mut response = self
+            .client
             .add_task(tonic::Request::new(AddTaskRequest {
-                uuid: self.uuid.clone(),
-                client_uuid,
-                task: Some(Task {
-                    command: task,
-                    arguments: None,
-                }),
+                uuid: Some(self.uuid.into()),
+                client_uuid: Some(client_uuid.into()),
+                task: Some(task.into()),
             }))
-            .await?;
+            .await?
+            .into_inner();
+        tokio::spawn(async move {
+            while let Some(r) = response.message().await.unwrap() {
+                if let Some(line) = r.line {
+                    tx.send(Message::Output(line)).unwrap();
+                } else {
+                    break;
+                }
+            }
+        });
 
         Ok(())
     }

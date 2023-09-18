@@ -1,7 +1,22 @@
 syntax = "proto3";
 package common;
 
+message Task {
+  Uuid uuid = 1;
+  ShellCode shellcode = 2;
+}
+
 message ShellCode {
   string command = 1;
-  optional string arguments = 2;
+  repeated string arguments = 2;
+}
+
+message Uuid {
+  uint64 high = 1;
+  uint64 low = 2;
+}
+
+message ImplantInfo {
+  Uuid uuid = 1;
+  string ip_address = 2;
 }

@@ -3,10 +3,11 @@ use clap::Parser;
 
 use interface::Interface;
 use tokio::sync::mpsc;
-use tui::{initialize_panic_handler, version, App, Message};
+use tui::{utils::*, App, Message, Task};
 
 mod interface;
 mod tui;
+mod utils;
 
 pub mod common {
     tonic::include_proto!("common");
@@ -29,12 +30,13 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let cli = Cli::parse();
+    initialize_logging()?;
+
     // Fallback catch for panics.
     initialize_panic_handler();
 
-    let cli = Cli::parse();
-    let mut interface = Interface::connect(cli.url).await?;
-    let (message_tx, mut message_rx) = mpsc::unbounded_channel::<Message>();
+    let (message_tx, message_rx) = mpsc::unbounded_channel::<Message>();
     let (lmessage_tx, lmessage_rx) = mpsc::unbounded_channel::<Message>();
 
     let mut app = App::new((APP_TICK_RATE, RENDER_TICK_RATE))?;
@@ -42,15 +44,6 @@ async fn main() -> Result<()> {
         app.run(Some(message_tx), Some(lmessage_rx)).await.unwrap();
     });
 
-    loop {
-        if let Some(message) = message_rx.recv().await {
-            match message {
-                Message::SendTask(u, t) => interface.add_task(u, t).await?,
-                Message::Tick => lmessage_tx.send(Message::Implants(interface.get_list().await?))?,
-                Message::Quit => break,
-                _ => (),
-            }
-        }
-    }
-    Ok(())
+    let interface = Interface::connect(cli.url).await?;
+    interface.run(lmessage_tx.clone(), message_rx).await
 }

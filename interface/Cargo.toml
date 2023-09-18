@@ -22,22 +22,37 @@ clap = { version = "4.3.4", default-features = false, features = [
   "unstable-styles",
 ] }
 clap_complete = "4.3.1"
+directories = "5.0.1"
 strum = "0.25.0"
 strum_macros = "0.25.0"
 
 crossterm = { version = "0.27.0", default-features = false, features = [
   "event-stream",
 ] }
-ratatui = { version = "0.22.0", features = ["all-widgets"]}
+ratatui = { version = "0.23.0", features = ["all-widgets"]}
 tui-input = "0.8.0"
 
-prost = "0.11"
-tonic = "0.9"
+log4rs = { version = "1.2.0", features = [
+  "rolling_file_appender", "fixed_window_roller", "compound_policy", "size_trigger", "gzip"
+] }
+log = "0.4.20"
+colored = "2.0.4"
+
+prost = "0.12"
+tonic = "0.10"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 tokio-stream = "0.1.14"
 tokio-util = "0.7.8"
 futures = "0.3.28"
 signal-hook = "0.3.15"
 
+[dependencies.uuid]
+version = "1.4.1"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]
+
 [build-dependencies]
-tonic-build = "0.9"
+tonic-build = "0.10"

