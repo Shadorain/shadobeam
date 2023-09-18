@@ -7,6 +7,7 @@ use tui::{utils::*, App, Message, Task};
 
 mod interface;
 mod tui;
+mod utils;
 
 pub mod common {
     tonic::include_proto!("common");
@@ -29,13 +30,12 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let cli = Cli::parse();
     initialize_logging()?;
 
     // Fallback catch for panics.
     initialize_panic_handler();
 
-    let cli = Cli::parse();
-    let interface = Interface::connect(cli.url).await?;
     let (message_tx, message_rx) = mpsc::unbounded_channel::<Message>();
     let (lmessage_tx, lmessage_rx) = mpsc::unbounded_channel::<Message>();
 
@@ -44,5 +44,6 @@ async fn main() -> Result<()> {
         app.run(Some(message_tx), Some(lmessage_rx)).await.unwrap();
     });
 
+    let interface = Interface::connect(cli.url).await?;
     interface.run(lmessage_tx.clone(), message_rx).await
 }

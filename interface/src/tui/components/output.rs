@@ -24,6 +24,9 @@ impl Output {
     pub fn add_console(&mut self, key: Key) {
         self.output_map.insert(key, StatefulList::new());
     }
+    pub fn remove_implant(&mut self, uuid: Uuid) {
+        self.output_map.retain(|k, _| k.0 != uuid);
+    }
 
     pub fn set_key(&mut self, key: Option<Key>) {
         self.current_key = key;

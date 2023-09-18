@@ -1,50 +1,59 @@
+use anyhow::Result;
 use ratatui::{prelude::*, widgets::*};
 use uuid::Uuid;
 
-use super::{center_text, Action, Component, Frame, Message, Pane, StatefulList};
+use super::{
+    center_text, Action, Component, Frame, ImplantControl, ImplantInfo, Message, Pane, StatefulList,
+};
 
 #[derive(Default)]
 struct Implant {
-    id_str: String,
-    id: Uuid,
+    info: ImplantInfo,
 }
 impl Implant {
-    pub fn new(id_str: String) -> Self {
-        let id = Uuid::parse_str(&id_str).expect("Failed to parse implant uuid.");
-        Implant { id_str, id }
+    pub fn new(info: ImplantInfo) -> Self {
+        Implant { info }
     }
 }
 
 #[derive(Default)]
 pub struct Implants {
-    list_map: StatefulList<Implant>,
+    list: StatefulList<Implant>,
     focus: bool,
 }
 
 impl Implants {
     pub fn uuid(&self) -> Option<Uuid> {
-        self.list_map.get().map(|x| x.id)
+        self.list.get().map(|x| x.info.uuid)
     }
 }
 
 impl Component for Implants {
+    fn init(
+        &mut self,
+        _: tokio::sync::mpsc::UnboundedSender<Action>,
+        _: Option<tokio::sync::mpsc::UnboundedSender<Message>>,
+    ) -> Result<()> {
+        self.list.first();
+        Ok(())
+    }
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         match action {
-            Action::ScrollUp => self.list_map.previous(),
-            Action::ScrollDown => self.list_map.next(),
-            Action::ScrollTop => self.list_map.first(),
-            Action::ScrollBottom => self.list_map.last(),
+            Action::ScrollUp => self.list.previous(),
+            Action::ScrollDown => self.list.next(),
+            Action::ScrollTop => self.list.first(),
+            Action::ScrollBottom => self.list.last(),
             _ => (),
         }
         None
     }
 
     fn message(&mut self, message: Message) -> Option<Action> {
-        if let Message::Implants(list) = message {
-            self.list_map
-                .replace(list.into_iter().map(|id| Implant::new(id)).collect());
-        }
-        if self.list_map.changed() {
+        if let Message::Implants(control) = message {
+            match control {
+                ImplantControl::Add(info) => self.list.push(Implant::new(info)),
+                ImplantControl::Remove(uuid) => self.list.retain(|val| val.info.uuid != uuid),
+            }
             return Some(Action::ImplantChanged);
         }
         None
@@ -56,14 +65,14 @@ impl Component for Implants {
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let focus = self.focus;
-        if self.list_map.len() > 0 {
-            self.list_map.render(
+        if self.list.len() > 0 {
+            self.list.render(
                 f,
                 area,
                 |items| {
                     let list: Vec<ListItem> = items
                         .iter()
-                        .map(|c| ListItem::new(c.id_str.as_str()))
+                        .map(|c| ListItem::new(c.info.uuid.to_string()))
                         .collect();
                     List::new(list)
                         .block(Pane::Implants.block(focus))

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use ratatui::{prelude::*, widgets::*};
 use uuid::Uuid;
 
-use super::{center_text, Action, Component, Frame, Pane, StatefulList};
+use super::{center_text, Action, Component, Frame, ImplantControl, Pane, StatefulList};
 
 type Key = Uuid;
 
@@ -16,18 +16,29 @@ pub struct Console {
 }
 
 impl Console {
-    pub fn push(&mut self, item: String) {
+    pub fn push(&mut self, item: String) -> usize {
         if let Some(list) = self.current() {
-            list.push(item)
+            list.push(item);
+            return list.len() - 1;
         }
+        0
     }
     pub fn current(&mut self) -> Option<&mut StatefulList<String>> {
         let key = self.current_key.as_ref()?;
         self.list_map.get_mut(key)
     }
 
-    pub fn add_implant(&mut self, key: Key) {
-        self.list_map.insert(key, StatefulList::new());
+    pub fn implant_control(&mut self, control: &ImplantControl) {
+        match control {
+            ImplantControl::Add(info) => {
+                self.list_map.insert(info.uuid, StatefulList::new());
+                self.current_key = Some(info.uuid);
+            }
+            ImplantControl::Remove(uuid) => {
+                self.list_map.remove(uuid);
+                self.current_key = Some(*uuid);
+            }
+        };
     }
 
     pub fn set_key(&mut self, key: Option<Key>) -> Option<usize> {

@@ -196,7 +196,8 @@ impl Component for Base {
                             code: (self.input.to_string(), None),
                         },
                     ));
-                    self.console.push(self.input.to_string());
+                    let idx = self.console.push(self.input.to_string());
+                    self.output.add_console((uuid, idx));
                 }
                 return Some(Action::EnterNormal);
             }
@@ -247,7 +248,13 @@ impl Component for Base {
 
     fn message(&mut self, message: Message) -> Option<Action> {
         match message {
-            Message::Implants(_) => self.implants.message(message),
+            Message::Implants(ref control) => {
+                self.console.implant_control(control);
+                if let super::ImplantControl::Remove(uuid) = control {
+                    self.output.remove_implant(*uuid);
+                }
+                self.implants.message(message)
+            }
             Message::Output(_) => self.output.message(message),
             _ => None,
         }
