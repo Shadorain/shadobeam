@@ -221,13 +221,11 @@ impl Component for Base {
             }
 
             Action::ImplantChanged => {
-                log::info!("IMPLANT: {}", self.implants.uuid()?);
                 return Some(Action::ConsoleChanged(
                     self.console.set_key(self.implants.uuid()),
                 ));
             }
             Action::ConsoleChanged(k) => {
-                log::info!("CONSOLE: {}, {}", self.implants.uuid()?, k);
                 self.output
                     .set_key(if let Some(uuid) = self.implants.uuid() {
                         k.map(|k| (uuid, k))
@@ -239,10 +237,6 @@ impl Component for Base {
             _ => {
                 let pane = self.selected_pane.0;
                 let cmp = &mut self.components()[pane];
-                if let Some(a) = cmp.dispatch(action) {
-                    log::info!("Action: {:?}", a);
-                    return Some(a);
-                }
                 return cmp.dispatch(action);
             }
         }

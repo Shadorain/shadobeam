@@ -71,6 +71,8 @@ impl Interface {
         task: Task,
         tx: UnboundedSender<Message>,
     ) -> Result<()> {
+        log::info!("Sending task: {task:?}");
+
         let uuid = task.uuid;
         let mut response = self
             .client
