@@ -71,6 +71,7 @@ impl Interface {
         task: Task,
         tx: UnboundedSender<Message>,
     ) -> Result<()> {
+        let uuid = task.uuid;
         let mut response = self
             .client
             .add_task(tonic::Request::new(AddTaskRequest {
@@ -80,16 +81,16 @@ impl Interface {
             }))
             .await?
             .into_inner();
+
         tokio::spawn(async move {
             while let Some(r) = response.message().await.unwrap() {
                 if let Some(line) = r.line {
-                    tx.send(Message::Output(line)).unwrap();
+                    tx.send(Message::Output(uuid, line)).unwrap();
                 } else {
                     break;
                 }
             }
         });
-
         Ok(())
     }
 }

@@ -10,13 +10,21 @@ pub enum Message {
     Tick,
     SendTask(Uuid, Task),
     Implants(ImplantControl),
-    Output(String),
+    Output(Uuid, String),
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Task {
     pub uuid: Uuid,
     pub code: (String, Option<Vec<String>>),
+}
+impl Task {
+    pub fn new(uuid: Uuid, cmd: String, arguments: Option<Vec<String>>) -> Self {
+        Self {
+            uuid,
+            code: (cmd, arguments),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

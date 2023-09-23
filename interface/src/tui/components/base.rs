@@ -190,15 +190,11 @@ impl Component for Base {
             Action::CompleteInput => {
                 // TODO: Handle if uuid is None.
                 if let Some(uuid) = self.implants.uuid() {
-                    self.send(Message::SendTask(
-                        uuid,
-                        Task {
-                            uuid: Uuid::new_v4(),
-                            code: (self.input.to_string(), None),
-                        },
-                    ));
-                    let idx = self.console.push(self.input.to_string());
-                    self.output.add_console((uuid, idx));
+                    let task_uuid = Uuid::new_v4();
+                    let task = Task::new(task_uuid, self.input.to_string(), None);
+                    self.send(Message::SendTask(uuid, task.clone()));
+                    self.console.push(task);
+                    self.output.add_console((uuid, task_uuid));
                 }
                 return Some(Action::EnterNormal);
             }
@@ -227,12 +223,17 @@ impl Component for Base {
             Action::ImplantChanged => {
                 log::info!("IMPLANT: {}", self.implants.uuid()?);
                 return Some(Action::ConsoleChanged(
-                    self.console.set_key(self.implants.uuid())?,
+                    self.console.set_key(self.implants.uuid()),
                 ));
             }
             Action::ConsoleChanged(k) => {
                 log::info!("CONSOLE: {}, {}", self.implants.uuid()?, k);
-                self.output.set_key(Some((self.implants.uuid()?, k)))
+                self.output
+                    .set_key(if let Some(uuid) = self.implants.uuid() {
+                        k.map(|k| (uuid, k))
+                    } else {
+                        None
+                    });
             }
 
             _ => {
@@ -242,6 +243,7 @@ impl Component for Base {
                     log::info!("Action: {:?}", a);
                     return Some(a);
                 }
+                return cmp.dispatch(action);
             }
         }
         None
@@ -256,7 +258,7 @@ impl Component for Base {
                 }
                 self.implants.message(message)
             }
-            Message::Output(_) => self.output.message(message),
+            Message::Output(..) => self.output.message(message),
             _ => None,
         }
     }
