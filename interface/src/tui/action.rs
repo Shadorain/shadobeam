@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -11,15 +13,12 @@ pub enum Action {
 
     CompleteInput,
     ImplantChanged,
-    ConsoleChanged(usize),
+    ConsoleChanged(Option<Uuid>),
 
     NextPane,
     PrevPane,
 
-    ScrollUp,
-    ScrollDown,
-    ScrollTop,
-    ScrollBottom,
+    List(Movement),
 
     EnterNormal,
     EnterInsert,
@@ -27,4 +26,13 @@ pub enum Action {
     ExitProcessing,
 
     Update,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Movement {
+    Up,
+    Down,
+    ScrollTop,
+    ScrollBottom,
 }

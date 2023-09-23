@@ -3,27 +3,26 @@ use std::collections::HashMap;
 use ratatui::{prelude::*, widgets::*};
 use uuid::Uuid;
 
-use super::{center_text, Action, Component, Frame, ImplantControl, Pane, StatefulList};
+use super::{center_text, Action, Component, Frame, ImplantControl, Pane, StatefulList, Task};
 
 type Key = Uuid;
+type SList = StatefulList<Task>;
 
 #[derive(Default)]
 pub struct Console {
-    list_map: HashMap<Key, StatefulList<String>>,
+    list_map: HashMap<Key, SList>,
     current_key: Option<Key>,
 
     focus: bool,
 }
 
 impl Console {
-    pub fn push(&mut self, item: String) -> usize {
+    pub fn push(&mut self, task: Task) {
         if let Some(list) = self.current() {
-            list.push(item);
-            return list.len() - 1;
+            list.push(task);
         }
-        0
     }
-    pub fn current(&mut self) -> Option<&mut StatefulList<String>> {
+    pub fn current(&mut self) -> Option<&mut SList> {
         let key = self.current_key.as_ref()?;
         self.list_map.get_mut(key)
     }
@@ -33,6 +32,7 @@ impl Console {
             ImplantControl::Add(info) => {
                 self.list_map.insert(info.uuid, StatefulList::new());
                 self.current_key = Some(info.uuid);
+                self.current().unwrap().first();
             }
             ImplantControl::Remove(uuid) => {
                 self.list_map.remove(uuid);
@@ -41,10 +41,10 @@ impl Console {
         };
     }
 
-    pub fn set_key(&mut self, key: Option<Key>) -> Option<usize> {
+    pub fn set_key(&mut self, key: Option<Key>) -> Option<Uuid> {
         self.current_key = key;
         if let Some(list) = self.current() {
-            return list.state.selected();
+            return Some(list.get()?.uuid);
         }
         None
     }
@@ -53,17 +53,9 @@ impl Console {
 impl Component for Console {
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         let list = self.current()?;
-        match action {
-            Action::ScrollUp => list.previous(),
-            Action::ScrollDown => list.next(),
-            Action::ScrollTop => list.first(),
-            Action::ScrollBottom => list.last(),
-            _ => (),
-        }
-        if let Some(list) = self.current() {
-            if list.changed() {
-                return Some(Action::ConsoleChanged(list.state.selected()?));
-            }
+        if let Action::List(m) = action {
+            list.movement(m);
+            return Some(Action::ConsoleChanged(list.get().map(|task| task.uuid)));
         }
         None
     }
@@ -82,10 +74,10 @@ impl Component for Console {
                     let list: Vec<ListItem> = items
                         .iter()
                         .enumerate()
-                        .map(|(i, m)| {
+                        .map(|(i, task)| {
                             ListItem::new(vec![Line::from(Span::raw(format!(
                                 "{}): (cmd) ❱ {}",
-                                i, m
+                                i, task.code.0
                             )))])
                         })
                         .rev()

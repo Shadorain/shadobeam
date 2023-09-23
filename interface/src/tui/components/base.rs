@@ -4,7 +4,8 @@ use tokio::sync::mpsc::{self, UnboundedSender};
 use uuid::Uuid;
 
 use super::{
-    Action, Actions, Component, Console, Frame, Implants, Input, Message, Output, Pane, Task,
+    Action, Actions, Component, Console, Frame, Implants, Input, Message, Movement, Output, Pane,
+    Task,
 };
 
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
@@ -155,10 +156,10 @@ impl Component for Base {
                 }
                 KeyCode::Char('/') => Action::EnterInsert,
 
-                KeyCode::Up | KeyCode::Char('k') => Action::ScrollUp,
-                KeyCode::Down | KeyCode::Char('j') => Action::ScrollDown,
-                KeyCode::Home | KeyCode::Char('g') => Action::ScrollTop,
-                KeyCode::End | KeyCode::Char('G') => Action::ScrollBottom,
+                KeyCode::Up | KeyCode::Char('k') => Action::List(Movement::Up),
+                KeyCode::Down | KeyCode::Char('j') => Action::List(Movement::Down),
+                KeyCode::Home | KeyCode::Char('g') => Action::List(Movement::ScrollTop),
+                KeyCode::End | KeyCode::Char('G') => Action::List(Movement::ScrollBottom),
 
                 KeyCode::Tab | KeyCode::Char('l') | KeyCode::Right => Action::NextPane,
                 KeyCode::BackTab | KeyCode::Char('h') | KeyCode::Left => Action::PrevPane,
@@ -176,8 +177,8 @@ impl Component for Base {
     fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Option<Action> {
         Some(match self.mode {
             Mode::Normal | Mode::Processing => match mouse.kind {
-                MouseEventKind::ScrollUp => Action::ScrollUp,
-                MouseEventKind::ScrollDown => Action::ScrollDown,
+                MouseEventKind::ScrollUp => Action::List(Movement::Up),
+                MouseEventKind::ScrollDown => Action::List(Movement::Down),
                 _ => return None,
             },
             _ => return None,
@@ -189,15 +190,11 @@ impl Component for Base {
             Action::CompleteInput => {
                 // TODO: Handle if uuid is None.
                 if let Some(uuid) = self.implants.uuid() {
-                    self.send(Message::SendTask(
-                        uuid,
-                        Task {
-                            uuid: Uuid::new_v4(),
-                            code: (self.input.to_string(), None),
-                        },
-                    ));
-                    let idx = self.console.push(self.input.to_string());
-                    self.output.add_console((uuid, idx));
+                    let task_uuid = Uuid::new_v4();
+                    let task = Task::new(task_uuid, self.input.to_string(), None);
+                    self.send(Message::SendTask(uuid, task.clone()));
+                    self.console.push(task);
+                    self.output.add_console((uuid, task_uuid));
                 }
                 return Some(Action::EnterNormal);
             }
@@ -224,23 +221,23 @@ impl Component for Base {
             }
 
             Action::ImplantChanged => {
-                log::info!("IMPLANT: {}", self.implants.uuid()?);
                 return Some(Action::ConsoleChanged(
-                    self.console.set_key(self.implants.uuid())?,
+                    self.console.set_key(self.implants.uuid()),
                 ));
             }
             Action::ConsoleChanged(k) => {
-                log::info!("CONSOLE: {}, {}", self.implants.uuid()?, k);
-                self.output.set_key(Some((self.implants.uuid()?, k)))
+                self.output
+                    .set_key(if let Some(uuid) = self.implants.uuid() {
+                        k.map(|k| (uuid, k))
+                    } else {
+                        None
+                    });
             }
 
             _ => {
                 let pane = self.selected_pane.0;
                 let cmp = &mut self.components()[pane];
-                if let Some(a) = cmp.dispatch(action) {
-                    log::info!("Action: {:?}", a);
-                    return Some(a);
-                }
+                return cmp.dispatch(action);
             }
         }
         None
@@ -255,7 +252,7 @@ impl Component for Base {
                 }
                 self.implants.message(message)
             }
-            Message::Output(_) => self.output.message(message),
+            Message::Output(..) => self.output.message(message),
             _ => None,
         }
     }

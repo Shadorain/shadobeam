@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use ratatui::{prelude::Rect, widgets::*};
 
-use super::Frame;
+use super::{Frame, Movement};
 
 #[derive(Default)]
 pub struct StatefulList<T> {
@@ -13,7 +13,6 @@ pub struct StatefulList<T> {
     pub items: Vec<T>,
 
     loops: bool,
-    changed: bool,
 }
 
 impl<T> Deref for StatefulList<T> {
@@ -36,7 +35,6 @@ impl<T> StatefulList<T> {
             scroll_state: ScrollbarState::default(),
             items: Vec::new(),
             loops: false,
-            changed: false,
         }
     }
     pub fn with_items(items: Vec<T>) -> StatefulList<T> {
@@ -45,14 +43,12 @@ impl<T> StatefulList<T> {
             scroll_state: ScrollbarState::default(),
             items,
             loops: false,
-            changed: false,
         }
     }
     pub fn replace(&mut self, items: Vec<T>) {
         self.items = items;
         if self.state.selected().is_none() {
             self.first();
-            self.changed = true;
         }
     }
 
@@ -60,19 +56,26 @@ impl<T> StatefulList<T> {
         self.loops = scrollloop;
     }
 
+    pub fn movement(&mut self, movement: Movement) {
+        match movement {
+            Movement::Up => self.previous(),
+            Movement::Down => self.next(),
+            Movement::ScrollTop => self.first(),
+            Movement::ScrollBottom => self.last(),
+        }
+    }
+
     pub fn next(&mut self) {
         let len = self.items.len();
         if len == 0 {
             return;
         }
-        self.changed = true;
         let i = match self.state.selected() {
             Some(i) => {
                 if i >= len - 1 {
                     if self.loops {
                         0
                     } else {
-                        self.changed = false;
                         len - 1
                     }
                 } else {
@@ -90,14 +93,12 @@ impl<T> StatefulList<T> {
         if len == 0 {
             return;
         }
-        self.changed = true;
         let i = match self.state.selected() {
             Some(i) => {
                 if i == 0 {
                     if self.loops {
                         self.items.len() - 1
                     } else {
-                        self.changed = false;
                         0
                     }
                 } else {
@@ -111,11 +112,6 @@ impl<T> StatefulList<T> {
     }
 
     pub fn first(&mut self) {
-        if let Some(s) = self.state.selected() {
-            if s != 0 {
-                self.changed = true;
-            }
-        }
         self.state.select(Some(0));
         self.scroll_state = self.scroll_state.position(0_u16);
     }
@@ -123,11 +119,6 @@ impl<T> StatefulList<T> {
         let len = self.items.len();
         if len == 0 {
             return;
-        }
-        if let Some(s) = self.state.selected() {
-            if s != len - 1 {
-                self.changed = true;
-            }
         }
         self.state.select(Some(len - 1));
         self.scroll_state = self.scroll_state.position((len - 1) as u16);
@@ -139,12 +130,6 @@ impl<T> StatefulList<T> {
 
     pub fn get(&self) -> Option<&T> {
         self.items.get(self.state.selected()?)
-    }
-
-    pub fn changed(&mut self) -> bool {
-        let changed = self.changed;
-        self.changed = false;
-        changed
     }
 
     pub fn render(

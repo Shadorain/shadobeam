@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::{center_text, Action, Component, Frame, Message, Pane, StatefulList};
 
-type Key = (Uuid, usize);
+type Key = (Uuid, Uuid);
 
 #[derive(Default)]
 pub struct Output {
@@ -20,9 +20,14 @@ impl Output {
         let key = self.current_key.as_ref()?;
         self.output_map.get_mut(key)
     }
+    pub fn current_with(&mut self, uuid: Uuid) -> Option<&mut StatefulList<String>> {
+        let key = self.current_key.as_ref()?.0;
+        self.output_map.get_mut(&(key, uuid))
+    }
 
     pub fn add_console(&mut self, key: Key) {
         self.output_map.insert(key, StatefulList::new());
+        self.set_key(Some(key));
     }
     pub fn remove_implant(&mut self, uuid: Uuid) {
         self.output_map.retain(|k, _| k.0 != uuid);
@@ -36,19 +41,15 @@ impl Output {
 impl Component for Output {
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         let list = self.current()?;
-        match action {
-            Action::ScrollUp => list.previous(),
-            Action::ScrollDown => list.next(),
-            Action::ScrollTop => list.first(),
-            Action::ScrollBottom => list.last(),
-            _ => (),
+        if let Action::List(m) = action {
+            list.movement(m);
         }
         None
     }
 
     fn message(&mut self, message: Message) -> Option<Action> {
-        if let Message::Output(line) = message {
-            self.current()?.push(line)
+        if let Message::Output(uuid, line) = message {
+            self.current_with(uuid)?.push(line)
         }
         None
     }
