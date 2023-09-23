@@ -4,7 +4,8 @@ use tokio::sync::mpsc::{self, UnboundedSender};
 use uuid::Uuid;
 
 use super::{
-    Action, Actions, Component, Console, Frame, Implants, Input, Message, Output, Pane, Task,
+    Action, Actions, Component, Console, Frame, Implants, Input, Message, Movement, Output, Pane,
+    Task,
 };
 
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
@@ -155,10 +156,10 @@ impl Component for Base {
                 }
                 KeyCode::Char('/') => Action::EnterInsert,
 
-                KeyCode::Up | KeyCode::Char('k') => Action::ScrollUp,
-                KeyCode::Down | KeyCode::Char('j') => Action::ScrollDown,
-                KeyCode::Home | KeyCode::Char('g') => Action::ScrollTop,
-                KeyCode::End | KeyCode::Char('G') => Action::ScrollBottom,
+                KeyCode::Up | KeyCode::Char('k') => Action::List(Movement::Up),
+                KeyCode::Down | KeyCode::Char('j') => Action::List(Movement::Down),
+                KeyCode::Home | KeyCode::Char('g') => Action::List(Movement::ScrollTop),
+                KeyCode::End | KeyCode::Char('G') => Action::List(Movement::ScrollBottom),
 
                 KeyCode::Tab | KeyCode::Char('l') | KeyCode::Right => Action::NextPane,
                 KeyCode::BackTab | KeyCode::Char('h') | KeyCode::Left => Action::PrevPane,
@@ -176,8 +177,8 @@ impl Component for Base {
     fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Option<Action> {
         Some(match self.mode {
             Mode::Normal | Mode::Processing => match mouse.kind {
-                MouseEventKind::ScrollUp => Action::ScrollUp,
-                MouseEventKind::ScrollDown => Action::ScrollDown,
+                MouseEventKind::ScrollUp => Action::List(Movement::Up),
+                MouseEventKind::ScrollDown => Action::List(Movement::Down),
                 _ => return None,
             },
             _ => return None,

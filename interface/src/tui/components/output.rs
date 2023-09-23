@@ -36,12 +36,8 @@ impl Output {
 impl Component for Output {
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         let list = self.current()?;
-        match action {
-            Action::ScrollUp => list.previous(),
-            Action::ScrollDown => list.next(),
-            Action::ScrollTop => list.first(),
-            Action::ScrollBottom => list.last(),
-            _ => (),
+        if let Action::List(m) = action {
+            list.movement(m);
         }
         None
     }

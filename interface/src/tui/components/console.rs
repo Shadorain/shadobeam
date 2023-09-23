@@ -53,17 +53,9 @@ impl Console {
 impl Component for Console {
     fn dispatch(&mut self, action: Action) -> Option<Action> {
         let list = self.current()?;
-        match action {
-            Action::ScrollUp => list.previous(),
-            Action::ScrollDown => list.next(),
-            Action::ScrollTop => list.first(),
-            Action::ScrollBottom => list.last(),
-            _ => (),
-        }
-        if let Some(list) = self.current() {
-            if list.changed() {
-                return Some(Action::ConsoleChanged(list.state.selected()?));
-            }
+        if let Action::List(m) = action {
+            list.movement(m);
+            return Some(Action::ConsoleChanged(list.get().map(|task| task.uuid)));
         }
         None
     }

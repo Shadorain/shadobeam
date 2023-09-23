@@ -38,12 +38,9 @@ impl Component for Implants {
         Ok(())
     }
     fn dispatch(&mut self, action: Action) -> Option<Action> {
-        match action {
-            Action::ScrollUp => self.list.previous(),
-            Action::ScrollDown => self.list.next(),
-            Action::ScrollTop => self.list.first(),
-            Action::ScrollBottom => self.list.last(),
-            _ => (),
+        if let Action::List(m) = action {
+            self.list.movement(m);
+            return Some(Action::ImplantChanged);
         }
         None
     }
