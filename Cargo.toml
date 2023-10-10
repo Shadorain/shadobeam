@@ -4,5 +4,6 @@ resolver = "2"
 members = [
     "implant",
     "beacon",
-    "interface"
+    "interface",
+    "proto",
 ]

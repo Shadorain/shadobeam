@@ -1,0 +1,14 @@
+[package]
+name = "shadobeam_proto"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.75"
+uuid = "1.4.1"
+
+tonic = "0.10"
+prost = "0.12"
+
+[build-dependencies]
+tonic-build = "0.10"
