@@ -1,11 +1,9 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::prelude::*;
 use tokio::sync::mpsc::{self, UnboundedSender};
-use uuid::Uuid;
 
 use super::{
     Action, Actions, Component, Console, Frame, Implants, Input, Message, Movement, Output, Pane,
-    Task,
 };
 
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
@@ -190,11 +188,10 @@ impl Component for Base {
             Action::CompleteInput => {
                 // TODO: Handle if uuid is None.
                 if let Some(uuid) = self.implants.uuid() {
-                    let task_uuid = Uuid::new_v4();
-                    let task = Task::new(task_uuid, self.input.to_string(), None);
+                    let task = self.input.task()?;
                     self.send(Message::SendTask(uuid, task.clone()));
+                    self.output.add_console((uuid, task.uuid));
                     self.console.push(task);
-                    self.output.add_console((uuid, task_uuid));
                 }
                 return Some(Action::EnterNormal);
             }
