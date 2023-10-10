@@ -3,29 +3,47 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures_core::Stream;
-use futures_util::StreamExt;
-use tokio::sync::mpsc;
-use tokio::sync::RwLock;
+use shadobeam_proto::{
+    iface::{
+        self, interface_service_server::InterfaceService, AddTaskRequest, AddTaskResponse,
+        ImplantInfoRequest, ImplantInfoResponse,
+    },
+    tasks::{
+        beacon_service_server::BeaconService, ConnectionRequest, ConnectionResponse, OutputRequest,
+        OutputResponse, PollRequest, PollResponse,
+    },
+    ImplantControl, ImplantInfo,
+};
+
+use tokio::sync::{mpsc, RwLock};
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
-use crate::implant::{Implant, Implants};
+use futures_core::Stream;
+use futures_util::StreamExt;
 
-use crate::iface::{
-    self, interface_service_server::InterfaceService, AddTaskRequest, AddTaskResponse,
-    ImplantInfoRequest, ImplantInfoResponse,
+use super::{
+    implant::{Implant, Implants},
+    interface::{Interface, Interfaces},
 };
-use crate::interface::Interface;
-use crate::interface::Interfaces;
-use crate::tasks::{
-    beacon_service_server::BeaconService, ConnectionRequest, ConnectionResponse, OutputRequest,
-    OutputResponse, PollRequest, PollResponse,
-};
-use crate::utils::ImplantControl;
-use crate::utils::ImplantInfo;
 
 const HEARTBEAT: u32 = 5000; // TODO: variable heartbeat config for implant
+
+#[derive(Debug, Default)]
+pub struct BeaconArc(Arc<Beacon>);
+
+impl Clone for BeaconArc {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+impl Deref for BeaconArc {
+    type Target = Beacon;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct Beacon {
@@ -34,8 +52,9 @@ pub struct Beacon {
     running_tasks: RwLock<HashMap<Uuid, Vec<mpsc::UnboundedSender<String>>>>,
 }
 impl Beacon {
-    pub fn new() -> Arc<Self> {
-        Arc::new(Self::default())
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new() -> BeaconArc {
+        BeaconArc(Arc::new(Self::default()))
     }
 }
 impl Deref for Beacon {
@@ -47,7 +66,7 @@ impl Deref for Beacon {
 }
 
 #[tonic::async_trait]
-impl BeaconService for Arc<Beacon> {
+impl BeaconService for BeaconArc {
     async fn connection(
         &self,
         request: Request<ConnectionRequest>,
@@ -61,7 +80,9 @@ impl BeaconService for Arc<Beacon> {
 
         let info = ImplantInfo::new(ip, uuid);
         self.implants.add(uuid, Implant::new(info.clone())).await;
-        self.interfaces.implant_control(ImplantControl::Add(info)).await;
+        self.interfaces
+            .implant_control(ImplantControl::Add(info))
+            .await;
 
         Ok(Response::new(ConnectionResponse {
             uuid: Some(uuid.into()),
@@ -106,7 +127,7 @@ impl BeaconService for Arc<Beacon> {
 }
 
 #[tonic::async_trait]
-impl InterfaceService for Arc<Beacon> {
+impl InterfaceService for BeaconArc {
     async fn connection(
         &self,
         _request: Request<iface::ConnectionRequest>,
@@ -138,7 +159,10 @@ impl InterfaceService for Arc<Beacon> {
             tx.send(info.into()).unwrap();
         }
 
-        self.interfaces.set_channel(uuid, tx).await.map_err(|e| Status::not_found(e.to_string()))?;
+        self.interfaces
+            .set_channel(uuid, tx)
+            .await
+            .map_err(|e| Status::not_found(e.to_string()))?;
 
         let output = async_stream::try_stream! {
             while let Some(info) = rx.recv().await {

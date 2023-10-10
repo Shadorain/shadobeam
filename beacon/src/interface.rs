@@ -1,10 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{anyhow, Result};
+use shadobeam_proto::ImplantControl;
 use tokio::sync::{mpsc::UnboundedSender, RwLock};
 use uuid::Uuid;
-
-use crate::utils::ImplantControl;
 
 type HM = HashMap<Uuid, Interface>;
 

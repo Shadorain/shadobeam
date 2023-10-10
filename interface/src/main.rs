@@ -3,18 +3,10 @@ use clap::Parser;
 
 use interface::Interface;
 use tokio::sync::mpsc;
-use tui::{utils::*, App, Message, Task};
+use tui::{utils::*, App, Message};
 
 mod interface;
 mod tui;
-mod utils;
-
-pub mod common {
-    tonic::include_proto!("common");
-}
-pub mod iface {
-    tonic::include_proto!("iface");
-}
 
 const APP_TICK_RATE: u64 = 1000;
 const RENDER_TICK_RATE: u64 = 50;

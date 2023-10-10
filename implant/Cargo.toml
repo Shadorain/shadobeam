@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+shadobeam_proto = { version = "0.1.0", path = "../proto/" }
+
 anyhow = "1.0.75"
 rand = "0.8.5"
 uuid = "1.4.1"
@@ -13,6 +15,3 @@ prost = "0.12"
 
 async-stream = "0.3.5"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "process"] }
-
-[build-dependencies]
-tonic-build = "0.10"

@@ -5,13 +5,6 @@ use tokio::time;
 
 use implant::Implant;
 
-pub mod tasks {
-    tonic::include_proto!("tasks");
-}
-pub mod common {
-    tonic::include_proto!("common");
-}
-
 mod implant;
 
 #[tokio::main]

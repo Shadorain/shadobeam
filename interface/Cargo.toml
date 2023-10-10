@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+shadobeam_proto = { version = "0.1.0", path = "../proto/" }
+
 anyhow = "1.0.71"
 better-panic = "0.3.0"
 
@@ -53,6 +55,3 @@ features = [
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
-
-[build-dependencies]
-tonic-build = "0.10"

