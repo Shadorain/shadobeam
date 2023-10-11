@@ -3,10 +3,9 @@ use std::{
     sync::Arc,
 };
 
+use shadobeam_proto::{ImplantInfo, Task};
 use tokio::sync::RwLock;
 use uuid::Uuid;
-
-use crate::utils::{ImplantInfo, Task};
 
 type HM = HashMap<Uuid, Arc<Implant>>;
 
@@ -21,13 +20,13 @@ impl Implants {
         map.insert(id, implant.into());
     }
 
-    pub async fn add_task(&self, task: Task) {
-        let map = self.implants.read().await;
-
-        for (_, val) in map.iter() {
-            val.push_task(task.clone()).await;
-        }
-    }
+    // pub async fn add_task(&self, task: Task) {
+    //     let map = self.implants.read().await;
+    //
+    //     for (_, val) in map.iter() {
+    //         val.push_task(task.clone()).await;
+    //     }
+    // }
 
     pub async fn list(&self) -> Vec<ImplantInfo> {
         let map = self.implants.read().await;

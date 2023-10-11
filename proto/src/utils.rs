@@ -1,10 +1,22 @@
+use std::net::{SocketAddr, SocketAddrV4};
+
 use uuid::Uuid;
 
-use crate::{
-    common,
-    iface::implant_info_response::Itype,
-    tui::{ImplantControl, ImplantInfo, Task},
-};
+use crate::{common, iface::implant_info_response::Itype};
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct Task {
+    pub uuid: Uuid,
+    pub code: (String, Option<Vec<String>>),
+}
+impl Task {
+    pub fn new(uuid: Uuid, cmd: String, arguments: Option<Vec<String>>) -> Self {
+        Self {
+            uuid,
+            code: (cmd, arguments),
+        }
+    }
+}
 
 impl From<Task> for common::Task {
     fn from(value: Task) -> Self {
@@ -44,6 +56,35 @@ impl From<Uuid> for common::Uuid {
     fn from(value: Uuid) -> Self {
         let (high, low) = value.as_u64_pair();
         Self { high, low }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ImplantControl {
+    Add(ImplantInfo),
+    Remove(Uuid),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImplantInfo {
+    pub uuid: Uuid,
+    socket_addr: SocketAddr,
+}
+
+impl Default for ImplantInfo {
+    fn default() -> Self {
+        Self {
+            uuid: Uuid::nil(),
+            socket_addr: SocketAddr::V4(SocketAddrV4::new([0, 0, 0, 0].into(), 0)),
+        }
+    }
+}
+impl ImplantInfo {
+    pub fn new(socket_addr: SocketAddr, uuid: Uuid) -> Self {
+        Self { socket_addr, uuid }
+    }
+    pub fn socket(&self) -> SocketAddr {
+        self.socket_addr
     }
 }
 

@@ -3,6 +3,8 @@ use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::prelude::*;
 use tokio::sync::mpsc::UnboundedSender;
 
+use shadobeam_proto::*;
+
 use super::{action::*, message::*, Event, Frame, StatefulList};
 
 pub use base::Base;

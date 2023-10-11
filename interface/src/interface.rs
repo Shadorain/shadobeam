@@ -2,15 +2,16 @@ use anyhow::Result;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use uuid::Uuid;
 
-use super::{
-    iface::{
+use tonic::transport::Channel;
+
+use shadobeam_proto::{iface::{
         interface_service_client::InterfaceServiceClient, AddTaskRequest, ConnectionRequest,
         ImplantInfoRequest,
     },
-    Message, Task,
+    Task,
 };
 
-use tonic::transport::Channel;
+use super::Message;
 
 pub struct Interface {
     client: InterfaceServiceClient<Channel>,
