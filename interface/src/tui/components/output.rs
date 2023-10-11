@@ -1,26 +1,28 @@
 use std::collections::HashMap;
 
 use ratatui::{prelude::*, widgets::*};
+use shadobeam_proto::OutputResult;
 use uuid::Uuid;
 
 use super::{center_text, Action, Component, Frame, Message, Pane, StatefulList};
 
 type Key = (Uuid, Uuid);
+type SList = StatefulList<OutputResult>;
 
 #[derive(Default)]
 pub struct Output {
-    output_map: HashMap<Key, StatefulList<String>>,
+    output_map: HashMap<Key, SList>,
     current_key: Option<Key>,
 
     focus: bool,
 }
 
 impl Output {
-    pub fn current(&mut self) -> Option<&mut StatefulList<String>> {
+    pub fn current(&mut self) -> Option<&mut SList> {
         let key = self.current_key.as_ref()?;
         self.output_map.get_mut(key)
     }
-    pub fn current_with(&mut self, uuid: Uuid) -> Option<&mut StatefulList<String>> {
+    pub fn current_with(&mut self, uuid: Uuid) -> Option<&mut SList> {
         let key = self.current_key.as_ref()?.0;
         self.output_map.get_mut(&(key, uuid))
     }
@@ -65,8 +67,15 @@ impl Component for Output {
                 f,
                 area,
                 |items| {
-                    let list: Vec<ListItem> =
-                        items.iter().map(|c| ListItem::new(c.as_str())).collect();
+                    let list: Vec<ListItem> = items
+                        .iter()
+                        .map(|res| match res {
+                            Ok(line) => ListItem::new(line.as_str()),
+                            Err(e) => {
+                                ListItem::new(e.as_str()).style(Style::new().bold().fg(Color::Red))
+                            }
+                        })
+                        .collect();
                     List::new(list)
                         .highlight_style(Style::new().bold().fg(Color::White))
                         .block(Pane::Output.block(focus))

@@ -20,3 +20,10 @@ message ImplantInfo {
   Uuid uuid = 1;
   string ip_address = 2;
 }
+
+message OutputResult {
+  oneof result {
+    string line = 1;
+    string error = 2;
+  }
+}

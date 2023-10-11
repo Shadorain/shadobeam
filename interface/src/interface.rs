@@ -86,9 +86,9 @@ impl Interface {
             .into_inner();
 
         tokio::spawn(async move {
-            while let Some(r) = response.message().await.unwrap() {
-                if let Some(line) = r.line {
-                    tx.send(Message::Output(uuid, line)).unwrap();
+            while let Some(response) = response.message().await.unwrap() {
+                if let Some(output) = response.output {
+                    tx.send(Message::Output(uuid, output.into())).unwrap();
                 } else {
                     break;
                 }

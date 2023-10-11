@@ -12,7 +12,7 @@ use shadobeam_proto::{
         beacon_service_server::BeaconService, ConnectionRequest, ConnectionResponse, OutputRequest,
         OutputResponse, PollRequest, PollResponse,
     },
-    ImplantControl, ImplantInfo,
+    ImplantControl, ImplantInfo, OutputResult,
 };
 
 use tokio::sync::{mpsc, RwLock};
@@ -49,7 +49,7 @@ impl Deref for BeaconArc {
 pub struct Beacon {
     implants: Implants,
     interfaces: Interfaces,
-    running_tasks: RwLock<HashMap<Uuid, Vec<mpsc::UnboundedSender<String>>>>,
+    running_tasks: RwLock<HashMap<Uuid, Vec<mpsc::UnboundedSender<OutputResult>>>>,
 }
 impl Beacon {
     #[allow(clippy::new_ret_no_self)]
@@ -118,7 +118,7 @@ impl BeaconService for BeaconArc {
                 .ok_or(Status::not_found("Running task uuid not found."))?
                 .iter()
             {
-                s.send(request.line.clone())
+                s.send(Into::<OutputResult>::into(request.output.clone().unwrap()))
                     .map_err(|_| Status::aborted("Interface channel closed."))?;
             }
         }
@@ -194,13 +194,13 @@ impl InterfaceService for BeaconArc {
         dbg!(&task);
         implant.push_task(task.into()).await;
 
-        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let (tx, mut rx) = mpsc::unbounded_channel::<OutputResult>();
         let mut tasks = self.running_tasks.write().await;
         tasks.insert(task_id, vec![tx]);
 
         let output = async_stream::try_stream! {
-            while let Some(line) = rx.recv().await {
-                yield AddTaskResponse { line: Some(line) };
+            while let Some(output) = rx.recv().await {
+                yield AddTaskResponse { output: Some(output.into()) };
             }
         };
         Ok(Response::new(Box::pin(output) as Self::AddTaskStream))
