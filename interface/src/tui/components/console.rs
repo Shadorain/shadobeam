@@ -75,9 +75,16 @@ impl Component for Console {
                         .iter()
                         .enumerate()
                         .map(|(i, task)| {
+                            let args = task.code.1.as_ref().map(|v| v.join(" "));
                             ListItem::new(vec![Line::from(Span::raw(format!(
-                                "{}): (cmd) ❱ {}",
-                                i, task.code.0
+                                "{}): (cmd) ❱ {} {}",
+                                i,
+                                task.code.0,
+                                if let Some(args) = args {
+                                    args
+                                } else {
+                                    "".to_string()
+                                }
                             )))])
                         })
                         .rev()
