@@ -126,3 +126,30 @@ impl From<ImplantInfo> for ImplantControl {
         Self::Add(value)
     }
 }
+
+pub type OutputResult = Result<String, String>;
+
+impl From<OutputResult> for common::OutputResult {
+    fn from(value: OutputResult) -> Self {
+        match value {
+            Ok(line) => Self {
+                result: Some(common::output_result::Result::Line(line)),
+            },
+            Err(err) => Self {
+                result: Some(common::output_result::Result::Error(err)),
+            },
+        }
+    }
+}
+impl From<common::OutputResult> for OutputResult {
+    fn from(value: common::OutputResult) -> Self {
+        if let Some(res) = value.result {
+            match res {
+                common::output_result::Result::Line(line) => Self::Ok(line),
+                common::output_result::Result::Error(err) => Self::Err(err),
+            }
+        } else {
+            Self::Err("Output result is None".to_string())
+        }
+    }
+}

