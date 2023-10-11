@@ -1,4 +1,4 @@
-use shadobeam_proto::{ImplantControl, Task};
+use shadobeam_proto::{ImplantControl, OutputResult, Task};
 use uuid::Uuid;
 
 #[allow(dead_code)]
@@ -9,5 +9,5 @@ pub enum Message {
     Tick,
     SendTask(Uuid, Task),
     Implants(ImplantControl),
-    Output(Uuid, String),
+    Output(Uuid, OutputResult),
 }

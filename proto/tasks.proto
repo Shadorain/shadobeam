@@ -31,7 +31,7 @@ message PollResponse {
 
 message OutputRequest {
   common.Uuid task_uuid = 1;
-  string line = 2;
+  common.OutputResult output = 2;
 }
 
 message OutputResponse {}
