@@ -52,8 +52,8 @@ impl Implant {
     }
 
     pub async fn cmd(&mut self, task: Task) -> Result<()> {
+        let task_uuid = task.uuid;
         let stream = async_stream::stream! {
-            let task_uuid = task.uuid;
             match cmd_reader(task) {
                 Ok(mut lines) => {
                     while let Some(line) = lines.next_line().await.unwrap() {

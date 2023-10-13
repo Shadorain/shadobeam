@@ -191,8 +191,9 @@ impl InterfaceService for BeaconArc {
             "Implant doesn't exist or isn't connected.",
         ))?;
 
+        let task = task.into();
         dbg!(&task);
-        implant.push_task(task.into()).await;
+        implant.push_task(task).await;
 
         let (tx, mut rx) = mpsc::unbounded_channel::<OutputResult>();
         let mut tasks = self.running_tasks.write().await;

@@ -20,6 +20,7 @@ impl Console {
     pub fn push(&mut self, task: Task) {
         if let Some(list) = self.current() {
             list.push(task);
+            list.last();
         }
     }
     pub fn current(&mut self) -> Option<&mut SList> {
@@ -87,7 +88,6 @@ impl Component for Console {
                                 }
                             )))])
                         })
-                        .rev()
                         .collect();
                     List::new(list)
                         .highlight_style(Style::new().bold().fg(Color::White))

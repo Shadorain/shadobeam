@@ -9,5 +9,5 @@ pub enum Message {
     Tick,
     SendTask(Uuid, Task),
     Implants(ImplantControl),
-    Output(Uuid, OutputResult),
+    Output((Uuid, Uuid), OutputResult),
 }

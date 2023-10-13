@@ -68,7 +68,7 @@ impl Interface {
 
     async fn add_task(
         &mut self,
-        client_uuid: Uuid,
+        implant_uuid: Uuid,
         task: Task,
         tx: UnboundedSender<Message>,
     ) -> Result<()> {
@@ -79,7 +79,7 @@ impl Interface {
             .client
             .add_task(tonic::Request::new(AddTaskRequest {
                 uuid: Some(self.uuid.into()),
-                client_uuid: Some(client_uuid.into()),
+                client_uuid: Some(implant_uuid.into()),
                 task: Some(task.into()),
             }))
             .await?
@@ -88,7 +88,7 @@ impl Interface {
         tokio::spawn(async move {
             while let Some(response) = response.message().await.unwrap() {
                 if let Some(output) = response.output {
-                    tx.send(Message::Output(uuid, output.into())).unwrap();
+                    tx.send(Message::Output((implant_uuid, uuid), output.into())).unwrap();
                 } else {
                     break;
                 }

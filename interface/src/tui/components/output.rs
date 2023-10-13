@@ -22,9 +22,8 @@ impl Output {
         let key = self.current_key.as_ref()?;
         self.output_map.get_mut(key)
     }
-    pub fn current_with(&mut self, uuid: Uuid) -> Option<&mut SList> {
-        let key = self.current_key.as_ref()?.0;
-        self.output_map.get_mut(&(key, uuid))
+    pub fn current_with(&mut self, key: Key) -> Option<&mut SList> {
+        self.output_map.get_mut(&key)
     }
 
     pub fn add_console(&mut self, key: Key) {
@@ -50,8 +49,8 @@ impl Component for Output {
     }
 
     fn message(&mut self, message: Message) -> Option<Action> {
-        if let Message::Output(uuid, line) = message {
-            self.current_with(uuid)?.push(line)
+        if let Message::Output(key, line) = message {
+            self.current_with(key)?.push(line)
         }
         None
     }
