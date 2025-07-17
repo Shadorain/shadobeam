@@ -15,6 +15,7 @@ pub struct Output {
     current_key: Option<Key>,
 
     focus: bool,
+    // throbber_state: throbber_widgets_tui::ThrobberState,
 }
 
 impl Output {
@@ -61,38 +62,52 @@ impl Component for Output {
 
     fn render(&mut self, f: &mut Frame, area: Rect) {
         let focus = self.focus;
+        let mut center_pane = |par: Paragraph| {
+            f.render_widget(par.alignment(Alignment::Center), center_text(area, 1));
+            f.render_widget(Pane::Output.block(focus), area);
+        };
+        // self.throbber_state.calc_next();
         if let Some(list) = self.current() {
-            list.render(
-                f,
-                area,
-                |items| {
-                    let list: Vec<ListItem> = items
-                        .iter()
-                        .map(|res| match res {
-                            Ok(line) => ListItem::new(line.as_str()),
-                            Err(e) => {
-                                ListItem::new(e.as_str()).style(Style::new().bold().fg(Color::Red))
-                            }
-                        })
-                        .collect();
-                    List::new(list)
-                        .highlight_style(Style::new().bold().fg(Color::White))
-                        .block(Pane::Output.block(focus))
-                },
-                Some(
-                    Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                        .begin_symbol(Some("▲"))
-                        .thumb_symbol("█")
-                        .track_symbol(Some("│"))
-                        .end_symbol(Some("▼")),
-                ),
-            );
+            if !list.is_empty() {
+                list.render(
+                    f,
+                    area,
+                    |items| {
+                        let list: Vec<ListItem> = items
+                            .iter()
+                            .map(|res| match res {
+                                Ok(line) => ListItem::new(line.as_str()),
+                                Err(e) => ListItem::new(e.as_str())
+                                    .style(Style::new().bold().fg(Color::Red)),
+                            })
+                            .collect();
+                        List::new(list)
+                            .highlight_style(Style::new().bold().fg(Color::White))
+                            .block(Pane::Output.block(focus))
+                    },
+                    Some(
+                        Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                            .begin_symbol(Some("▲"))
+                            .thumb_symbol("█")
+                            .track_symbol(Some("│"))
+                            .end_symbol(Some("▼")),
+                    ),
+                );
+            } else {
+                center_pane(
+                    Paragraph::new("Waiting on implant...").style(Style::new().light_magenta()),
+                );
+                // let throbber = throbber_widgets_tui::Throbber::default()
+                //     .label("Waiting on implant... ")
+                //     .style(Style::new().light_magenta())
+                //     .throbber_style(Style::new().cyan())
+                //     .throbber_set(throbber_widgets_tui::BRAILLE_DOUBLE)
+                //     .use_type(throbber_widgets_tui::WhichUse::Spin);
+                // f.render_stateful_widget(throbber, center_text(area, 1), &mut self.throbber_state);
+                // f.render_widget(Pane::Output.block(focus), area);
+            }
         } else {
-            f.render_widget(
-                Paragraph::new("No implants or commands selected.").alignment(Alignment::Center),
-                center_text(area, 1),
-            );
-            f.render_widget(Pane::Output.block(focus), area)
+            center_pane(Paragraph::new("No implants or commands selected."));
         }
     }
 }
